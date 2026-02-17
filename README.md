@@ -1,13 +1,13 @@
 # datahub-cicd
 
-CI/CD pipeline for syncing DataHub governance metadata (tags, glossary, domains) and enrichment (tag/term/domain assignments on datasets) from dev to prod.
+CI/CD pipeline for syncing DataHub governance metadata (tags, glossary, domains, data products) and enrichment (tag/term/domain/ownership assignments on datasets, charts, dashboards, containers, and more) from dev to prod.
 
 ## Architecture
 
 - **Unidirectional**: Dev DataHub is source of truth, prod is updated exclusively via CI/CD
 - **UUID passthrough**: Governance entity URNs are identical in dev and prod
 - **Full overwrite**: All writes use UPSERT (full replace). Dev wins.
-- **Phased execution**: Entities synced in dependency order (tags -> glossary nodes -> terms -> domains -> enrichment)
+- **Phased execution**: Entities synced in dependency order (tags -> glossary nodes -> terms -> domains -> data products -> enrichment)
 
 ## Entity & Aspect Reference
 
@@ -30,7 +30,7 @@ CI/CD pipeline for syncing DataHub governance metadata (tags, glossary, domains)
 | `glossaryTerm` | **Supported** | `glossaryTermInfo` (name, definition, termSource, parentNode) | Depends on glossaryNode. Topologically sorted. Names derived from URN when null. |
 | `domain` | **Supported** | `domainProperties` (name, description, parentDomain) | Topologically sorted for nested domains. System domains (`__system__*`) filtered. |
 | `structuredProperty` | **Planned** | `propertyDefinition` (qualifiedName, valueType, allowedValues, entityTypes) | Best-behaved entity: URNs are deterministic via `qualifiedName`. No UUID problem. |
-| `dataProduct` | **Planned** | `dataProductProperties` (name, description, assets) | UUID URNs by default. Asset lists contain dataset URNs that may differ cross-env. Requires UrnMapper. |
+| `dataProduct` | **Supported** | `dataProductProperties` (name, description, customProperties, assets) | Asset URNs mapped through `UrnMapper`. Depends on domain handler. 10 products validated against local cluster. |
 | `ownershipType` | **Planned** | `ownershipTypeInfo` (name, description) | Custom types only; system types (`__system__*` prefix, always UUID) are identical in all envs and skipped. |
 | `form` | **Planned** | `formInfo` (name, description, type, prompts) | UUID URNs, not discoverable by connector. Skip `formAssignmentStatus` (runtime state). |
 | `businessAttribute` | **Planned (Phase 6)** | `businessAttributeInfo` | Sparse entity (only ownership + institutionalMemory). Defines reusable column-level metadata templates. Referenced via `businessAttributes` aspect on `schemaField` only. Migrate if in use. |
@@ -42,7 +42,7 @@ These aspects appear on the governance entities above. They are not synced in th
 
 | Aspect | On Entity Types | Status | Justification |
 |---|---|---|---|
-| `ownership` | tag, glossaryNode, glossaryTerm, domain, dataProduct, form | **Planned** | Owner URNs (corpuser/corpGroup) are identity-based (same SSO = same URN). Custom ownershipType URNs may differ. |
+| `ownership` | tag, glossaryNode, glossaryTerm, domain, dataProduct, form | **Planned** (on governance entities themselves) | Owner URNs (corpuser/corpGroup) are identity-based (same SSO = same URN). Ownership on data assets (datasets, charts, etc.) is **Supported** via enrichment. |
 | `glossaryRelatedTerms` | glossaryTerm | **Planned** | Cross-references between terms. All referenced term URNs must exist before writing. Requires two-pass sync. |
 | `institutionalMemory` | glossaryNode, glossaryTerm, domain, dataProduct | **Planned** | Links to external documentation (URLs). No URN references inside -- straightforward to migrate. |
 | `structuredProperties` | glossaryNode, glossaryTerm, domain, dataProduct, form | **Planned** | Property assignments. Property URNs are deterministic (`qualifiedName`-based). |
@@ -53,13 +53,12 @@ These aspects appear on the governance entities above. They are not synced in th
 
 | Aspect | On Entity Types | Status | Justification |
 |---|---|---|---|
-| `globalTags` (dataset-level) | dataset | **Supported** | Tag assignments on datasets. Filtered to governance URNs. |
-| `glossaryTerms` (dataset-level) | dataset | **Supported** | Term assignments on datasets. Filtered to governance URNs. |
-| `domains` (dataset-level) | dataset | **Supported** | Domain membership. Filtered to governance URNs. |
-| `editableSchemaMetadata` (field-level tags/terms) | dataset | **Supported** | Per-column tag and term assignments. Filtered to governance URNs. |
-| `globalTags` on other assets | chart, dashboard, dataJob, dataFlow, container, notebook, mlModel, mlFeature | **Planned (Phase 3)** | Same pattern as dataset enrichment. Requires one handler per entity type (or a generic enrichment handler). |
-| `glossaryTerms` on other assets | chart, dashboard, dataJob, dataFlow, container, notebook, mlModel, mlFeature | **Planned (Phase 3)** | Same pattern as dataset enrichment. |
-| `domains` on other assets | chart, dashboard, dataJob, dataFlow, container, notebook, mlModel, mlFeature | **Planned (Phase 3)** | Same pattern as dataset enrichment. |
+| `globalTags` | dataset, chart, dashboard, container, dataFlow, dataProduct | **Supported** | Tag assignments. Filtered to governance URNs. Generic handler covers all entity types. |
+| `glossaryTerms` | dataset, chart, dashboard, container, dataFlow, dataProduct | **Supported** | Term assignments. Filtered to governance URNs. |
+| `domains` | dataset, chart, dashboard, container, dataFlow, dataProduct | **Supported** | Domain membership. Filtered to governance URNs. |
+| `ownership` | dataset, chart, dashboard, container, dataFlow, dataProduct | **Supported** | Owner assignments (corpuser/corpGroup URNs). Not filtered by governance URNs -- owner URNs are identity-based. |
+| `editableSchemaMetadata` (field-level tags/terms) | dataset | **Supported** | Per-column tag and term assignments. Filtered to governance URNs. Only exists on `dataset`. |
+| `globalTags` / `glossaryTerms` / `domains` / `ownership` on remaining assets | notebook, mlModel, mlFeature, mlModelGroup, mlFeatureTable | **Planned (Phase 3)** | Same pattern -- add the entity type to `ENRICHABLE_ENTITY_TYPES` list. |
 | `editableDatasetProperties` | dataset | **Planned (Phase 3)** | User-authored description override. No URN references inside -- straightforward. |
 | `editableContainerProperties` | container | **Planned (Phase 3)** | User-authored container description. Same pattern as dataset. Containers are ingestion-sourced but may have user edits. |
 | `editableSchemaMetadata` (field descriptions) | dataset | **Planned (Phase 3)** | Per-column descriptions. Currently only tags/terms are synced; descriptions would come with these. Note: `editableSchemaMetadata` exists ONLY on `dataset` -- no other entity type has this aspect. |
@@ -187,23 +186,27 @@ These aspects appear on the governance entities above. They are not synced in th
 | Glossary Nodes | Node definitions (name, definition, parent) | Full UPSERT | Topological sort (parents before children) | Filters `__system__*` |
 | Glossary Terms | Term definitions (name, definition, termSource, parent) | Full UPSERT | Topological sort by parentNode | Filters `__system__*` |
 | Domains | Domain definitions (name, description, parent) | Full UPSERT | Topological sort by parentDomain | Filters `__system__*` |
+| Data Products | Product definitions (name, description, assets) | Full UPSERT | Flat (depends on domain) | N/A |
 
 ### Enrichment Export & Sync
 
-| Enrichment Type | Export | Sync | Notes |
-|---|---|---|---|
-| Dataset-level tags | Tag assignments on datasets | Full UPSERT of `globalTags` aspect | Filtered to governance URNs only |
-| Dataset-level glossary terms | Term assignments on datasets | Full UPSERT of `glossaryTerms` aspect | Filtered to governance URNs only |
-| Dataset-level domains | Domain membership | Full UPSERT of `domains` aspect | Filtered to governance URNs only |
-| Field-level tags | Per-column tag assignments | Full UPSERT of `editableSchemaMetadata` | Via `editableSchemaFieldInfo` |
-| Field-level glossary terms | Per-column term assignments | Full UPSERT of `editableSchemaMetadata` | Via `editableSchemaFieldInfo` |
+Enrichment covers tag, term, domain, and ownership assignments on data assets. Each entity type is exported into its own JSON file.
+
+| Entity Type | Aspects Exported | Notes |
+|---|---|---|
+| dataset | `globalTags`, `glossaryTerms`, `domains`, `ownership`, `editableSchemaMetadata` | Field-level tags/terms via editableSchemaMetadata. Primary enrichment target. |
+| chart | `globalTags`, `glossaryTerms`, `domains`, `ownership` | |
+| dashboard | `globalTags`, `glossaryTerms`, `domains`, `ownership` | |
+| container | `globalTags`, `glossaryTerms`, `domains`, `ownership` | Databases/schemas. Enrichment on ingestion-sourced entities. |
+| dataFlow | `globalTags`, `glossaryTerms`, `domains`, `ownership` | Airflow DAGs, etc. |
+| dataProduct | `globalTags`, `glossaryTerms`, `domains`, `ownership` | Enrichment on data products (in addition to definition sync). |
+
+Additional entity types (dataJob, notebook, ML entities) can be added to the `ENRICHABLE_ENTITY_TYPES` list in `src/handlers/enrichment.py`. dataJob is excluded by default due to high entity count with typically no user-authored enrichment.
 
 ### Enrichment Filtering
 
-Enrichment is filtered to only include associations referencing governance entities that were exported. This means:
-- If tag `urn:li:tag:PII` is in the governance export, dataset-level PII tag assignments are included
-- Tags, terms, or domains not in the governance export are excluded from enrichment
-- This prevents syncing references to entities that don't exist in prod
+- Tags, terms, and domains are filtered to only include references to governance entities that were exported. This prevents syncing references to entities that don't exist in prod.
+- Ownership is **not** filtered -- owner URNs (corpuser/corpGroup) are identity-based and the same across environments (same SSO = same URN).
 
 ## Usage
 
@@ -216,12 +219,15 @@ export DATAHUB_DEV_TOKEN=your-token
 python -m src.cli.export_cmd --output-dir metadata/
 ```
 
-This exports 5 JSON files to `metadata/`:
-- `tag.json` -- tag definitions
-- `glossaryNode.json` -- glossary node definitions
-- `glossaryTerm.json` -- glossary term definitions
-- `domain.json` -- domain definitions
-- `enrichment.json` -- tag/term/domain assignments on datasets
+This exports governance definitions and enrichment JSON files to `metadata/`:
+
+**Governance definitions:**
+- `tag.json`, `glossaryNode.json`, `glossaryTerm.json`, `domain.json`, `dataProduct.json`
+
+**Enrichment (tags, terms, domains, ownership on data assets):**
+- `enrichment.json` -- dataset enrichment (includes field-level via editableSchemaMetadata)
+- `chartEnrichment.json`, `dashboardEnrichment.json`, `containerEnrichment.json`
+- `dataFlowEnrichment.json`, `dataProductEnrichment.json`
 
 Use `--skip-enrichment` to export only governance definitions.
 
@@ -257,9 +263,11 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 
 | Operation | Bottleneck | Current | Notes |
 |---|---|---|---|
-| Governance export | 1 HTTP call per entity (aspect read) | ~0.05s per entity | 33 entities = ~1.5s |
-| Enrichment export | 4 HTTP calls per dataset (tags, terms, domain, ESM) | ~0.04s per dataset | 146 datasets = ~5.5s |
+| Governance export | 1 HTTP call per entity (aspect read) | ~0.05s per entity | 43 entities = ~0.6s |
+| Dataset enrichment | 5 HTTP calls per dataset (tags, terms, domain, ownership, ESM) | ~0.05s per dataset | 146 datasets = ~7s |
+| Non-dataset enrichment | 4 HTTP calls per entity (tags, terms, domain, ownership) | ~0.04s per entity | 43 entities (chart+dashboard+container+dataFlow+dataProduct) = ~1.7s |
 | Sync (write) | 1 HTTP call per MCP | ~0.02s per MCP | Sequential per-entity emission |
+| **Full export** | | **~8s total** | 226 entities across 11 types |
 
 ### Extension Points for Future Optimization
 
@@ -303,13 +311,12 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 | No staging environment | No pre-production validation | Use `--dry-run` mode |
 | Glossary term names may be null | DataHub doesn't always populate `GlossaryTermInfo.name` | Names derived from URN when null |
 | `termSource` field may contain URNs | Some DataHub instances store parent node URN instead of INTERNAL/EXTERNAL | Passed through as-is to preserve fidelity |
-| Enrichment not version-controlled | `enrichment.json` is a snapshot, not a diff | Re-export before each sync |
-| Only dataset enrichment | Tags/terms on other entity types (charts, dashboards) not exported | Add handlers for other entity types |
+| Enrichment not version-controlled | Enrichment JSON files are snapshots, not diffs | Re-export before each sync |
 | UPSERT replaces entire aspect | Writing 1 tag to a dataset replaces ALL existing tags, not just adding one | By design (dev is authoritative). Future: MergeStrategy or PatchStrategy. |
 
 ## Roadmap
 
-### Phase 1 (Current): PoC -- Tags, Glossary, Domains + Enrichment
+### Phase 1 (Complete): PoC -- Tags, Glossary, Domains + Dataset Enrichment
 - [x] Tag, glossary, domain export and sync
 - [x] Dataset enrichment (dataset-level + field-level tags/terms/domains)
 - [x] Hierarchical ordering (topological sort)
@@ -318,21 +325,26 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 - [x] Dry-run mode
 - [x] GitHub Actions workflow
 
-### Phase 2: Extended Governance Entity Types
+### Phase 2 (Complete): Data Products + Ownership + Multi-Entity Enrichment
+- [x] `DataProductHandler` -- export/sync data product definitions with asset URN mapping
+- [x] `ownership` aspect on datasets, charts, dashboards, containers, dataFlows, data products
+- [x] `GenericEnrichmentHandler` -- reusable handler for tags/terms/domains/ownership on any entity type
+- [x] Chart enrichment (11 charts validated)
+- [x] Dashboard enrichment (5 dashboards validated)
+- [x] Container enrichment (13 containers validated, 2 with domain assignments)
+- [x] DataFlow enrichment (4 dataFlows)
+- [x] DataProduct enrichment (10 products, all with domains + ownership)
 - [ ] `StructuredPropertyHandler` -- deterministic URNs via qualifiedName; easiest to add
 - [ ] `OwnershipTypeHandler` -- custom ownership types (skip `__system__*`)
-- [ ] `DataProductHandler` -- requires UrnMapper for asset list dataset URNs
 - [ ] `FormHandler` -- UUID URNs, not connector-discoverable; skip formAssignmentStatus
 
-### Phase 3: Extended Enrichment & Aspects
-- [ ] `ownership` aspect on governance entities and data assets
+### Phase 3: Extended Aspects
 - [ ] `editableDatasetProperties` (user-authored dataset descriptions)
 - [ ] `editableContainerProperties`, `editableChartProperties`, `editableDashboardProperties`, etc.
 - [ ] `institutionalMemory` (documentation links)
 - [ ] `glossaryRelatedTerms` (cross-references between terms; requires two-pass)
 - [ ] `deprecation` aspect (deprecated flag, note, replacement URN)
-- [ ] Chart, dashboard, dataJob, dataFlow, container, notebook enrichment (tags, terms, domains)
-- [ ] ML entity enrichment (mlModel, mlModelGroup, mlFeature, etc.)
+- [ ] Notebook, ML entity enrichment (add to `ENRICHABLE_ENTITY_TYPES`)
 - [ ] `schemaField` entity enrichment (newer column-level model)
 
 ### Phase 4: Advanced Write Strategies
@@ -362,14 +374,18 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 2. Implement `entity_type`, `export()`, `build_mcps()`
 3. Optionally override `dependencies`, `is_system_entity()`, `validate()`
 4. Register in `src/handlers/__init__.py`
+5. **Required**: Add unit tests in `tests/test_handlers/`
+6. **Required (if entity exists in OSS)**: Add to integration test seed (`tests/integration/seed.py`) and assertions (`tests/integration/test_export.py`)
 
 No changes to orchestrator, CLI, or workflow needed.
+
+**Test coverage policy**: Every `EntityHandler` must have unit tests covering `export()`, `build_mcps()`, system entity filtering, and hierarchy ordering (if applicable). For entity types available in DataHub OSS, integration tests must also seed the entity with all supported aspects and validate the export output. This ensures that changes to the SDK, DataHub API, or handler logic are caught before deployment.
 
 ## Extension Points
 
 | Interface | Purpose | PoC Default |
 |---|---|---|
-| `EntityHandler` | Add new entity types | Tag, Glossary, Domain, Enrichment handlers |
+| `EntityHandler` | Add new entity types | Tag, Glossary, Domain, DataProduct, Dataset/Generic Enrichment handlers |
 | `UrnMapper` | Transform URNs between environments | `PassthroughMapper` (identity) |
 | `WriteStrategy` | Control how MCPs are written | `OverwriteStrategy` (full UPSERT) |
 | `WriteStrategy.emit_batch()` | Batch-optimized writes across entities | Delegates to per-entity `emit()` |
@@ -377,6 +393,40 @@ No changes to orchestrator, CLI, or workflow needed.
 
 ## Tests
 
+### Unit tests
+
 ```bash
 pytest tests/ -v
 ```
+
+### Integration tests
+
+Integration tests require Docker and start a full DataHub OSS instance via the official Docker Quickstart. All services use non-standard ports (10000 offset) to avoid collisions with local DataHub instances.
+
+| Service | Standard Port | Integration Port |
+|---|---|---|
+| GMS | 8080 | 18080 |
+| Frontend | 9002 | 19002 |
+| MySQL | 3306 | 13306 |
+| Elasticsearch | 9200 | 19200 |
+| Kafka | 9092 | 19092 |
+| Schema Registry | 8081 | 18081 |
+| Zookeeper | 2181 | 12181 |
+
+```bash
+# Run integration tests (starts Docker, seeds entities, exports, validates)
+pytest -m integration tests/integration/ -v
+
+# With custom GMS timeout (default 180s)
+INTEGRATION_GMS_TIMEOUT=300 pytest -m integration tests/integration/ -v
+```
+
+The integration test suite:
+1. Downloads the official DataHub quickstart `docker-compose.yml`
+2. Starts all services with a dedicated project name (`datahub-cicd-integration`)
+3. Seeds deterministic test entities covering all supported types:
+   - Governance: tags (incl. system tag for filtering), glossary nodes (nested), glossary terms (with parents), domains (nested), data products (with assets)
+   - Data assets: datasets, charts, dashboards, containers, dataflows
+   - Enrichment: tags, terms, domains, ownership on all asset types + field-level tags/terms on datasets
+4. Runs the export CLI and validates JSON output against expected entities
+5. Tears down all containers on completion

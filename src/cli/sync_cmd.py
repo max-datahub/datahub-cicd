@@ -12,7 +12,11 @@ import sys
 
 from src.client import get_dev_graph, get_prod_graph
 from src.handlers import create_default_registry
-from src.handlers.enrichment import DatasetEnrichmentHandler
+from src.handlers.enrichment import (
+    ENRICHABLE_ENTITY_TYPES,
+    DatasetEnrichmentHandler,
+    GenericEnrichmentHandler,
+)
 from src.orchestrator import SyncOrchestrator
 from src.urn_mapper import PassthroughMapper
 from src.utils import collect_governance_urns, read_json
@@ -66,28 +70,31 @@ def main() -> None:
     )
 
     # Load or export enrichment
+    dev_graph = None
     if args.live_enrichment:
         logger.info("Connecting to dev DataHub for live enrichment export...")
         dev_graph = get_dev_graph()
-        enrichment_handler = DatasetEnrichmentHandler(
-            governance_urns=governance_urns
-        )
-        enrichment_entities = enrichment_handler.export(dev_graph)
-    else:
-        enrichment_path = os.path.join(metadata_dir, "enrichment.json")
-        enrichment_entities = read_json(enrichment_path)
-        enrichment_handler = DatasetEnrichmentHandler(
-            governance_urns=governance_urns
-        )
-        if not enrichment_entities:
-            logger.warning(
-                f"No enrichment file at {enrichment_path}. "
-                f"Use --live-enrichment to export from dev, or run "
-                f"export_cmd first."
-            )
 
-    exports["enrichment"] = enrichment_entities
-    registry.register(enrichment_handler)
+    # Dataset enrichment
+    ds_handler = DatasetEnrichmentHandler(governance_urns=governance_urns)
+    if args.live_enrichment:
+        exports[ds_handler.entity_type] = ds_handler.export(dev_graph)
+    else:
+        path = os.path.join(metadata_dir, f"{ds_handler.entity_type}.json")
+        exports[ds_handler.entity_type] = read_json(path)
+    registry.register(ds_handler)
+
+    # Other entity type enrichment
+    for et in ENRICHABLE_ENTITY_TYPES:
+        if et == "dataset":
+            continue
+        handler = GenericEnrichmentHandler(et, governance_urns)
+        if args.live_enrichment:
+            exports[handler.entity_type] = handler.export(dev_graph)
+        else:
+            path = os.path.join(metadata_dir, f"{handler.entity_type}.json")
+            exports[handler.entity_type] = read_json(path)
+        registry.register(handler)
 
     # Set up write strategy
     if args.dry_run:

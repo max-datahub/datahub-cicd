@@ -9,10 +9,15 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    OwnerClass,
+    OwnershipClass,
     TagAssociationClass,
 )
 
-from src.handlers.enrichment import DatasetEnrichmentHandler
+from src.handlers.enrichment import (
+    DatasetEnrichmentHandler,
+    GenericEnrichmentHandler,
+)
 from src.urn_mapper import PassthroughMapper
 
 
@@ -44,7 +49,6 @@ class TestDatasetEnrichmentHandler:
             "urn:li:dataset:ds1",
         ]
 
-        # Dataset has both governance and non-governance tags
         tags = MagicMock(spec=GlobalTagsClass)
         gov_tag = MagicMock()
         gov_tag.tag = "urn:li:tag:PII"
@@ -55,6 +59,7 @@ class TestDatasetEnrichmentHandler:
 
         mock_graph.get_glossary_terms.return_value = None
         mock_graph.get_domain.return_value = None
+        mock_graph.get_ownership.return_value = None
         mock_graph.get_aspect.return_value = None
 
         entities = handler.export(mock_graph)
@@ -69,10 +74,31 @@ class TestDatasetEnrichmentHandler:
         mock_graph.get_tags.return_value = None
         mock_graph.get_glossary_terms.return_value = None
         mock_graph.get_domain.return_value = None
+        mock_graph.get_ownership.return_value = None
         mock_graph.get_aspect.return_value = None
 
         entities = handler.export(mock_graph)
         assert len(entities) == 0
+
+    def test_export_includes_ownership(self, handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = ["urn:li:dataset:ds1"]
+        mock_graph.get_tags.return_value = None
+        mock_graph.get_glossary_terms.return_value = None
+        mock_graph.get_domain.return_value = None
+        mock_graph.get_aspect.return_value = None
+
+        ownership = MagicMock(spec=OwnershipClass)
+        owner = MagicMock(spec=OwnerClass)
+        owner.owner = "urn:li:corpuser:alice@test.com"
+        owner.type = "TECHNICAL_OWNER"
+        ownership.owners = [owner]
+        mock_graph.get_ownership.return_value = ownership
+
+        entities = handler.export(mock_graph)
+        assert len(entities) == 1
+        assert "ownership" in entities[0]
+        assert entities[0]["ownership"][0]["owner"] == "urn:li:corpuser:alice@test.com"
+        assert entities[0]["ownership"][0]["type"] == "TECHNICAL_OWNER"
 
     def test_export_field_level_enrichment(self, handler, mock_graph):
         mock_graph.get_urns_by_filter.return_value = [
@@ -81,8 +107,8 @@ class TestDatasetEnrichmentHandler:
         mock_graph.get_tags.return_value = None
         mock_graph.get_glossary_terms.return_value = None
         mock_graph.get_domain.return_value = None
+        mock_graph.get_ownership.return_value = None
 
-        # Field-level tags
         field_info = MagicMock(spec=EditableSchemaFieldInfoClass)
         field_info.fieldPath = "email"
         field_tag = MagicMock()
@@ -136,6 +162,22 @@ class TestDatasetEnrichmentHandler:
         assert isinstance(mcps[0].aspect, DomainsClass)
         assert "urn:li:domain:marketing" in mcps[0].aspect.domains
 
+    def test_build_mcps_ownership(self, handler):
+        entity = {
+            "dataset_urn": "urn:li:dataset:ds1",
+            "ownership": [
+                {"owner": "urn:li:corpuser:alice", "type": "TECHNICAL_OWNER"},
+            ],
+        }
+        mapper = PassthroughMapper()
+        mcps = handler.build_mcps(entity, mapper)
+
+        assert len(mcps) == 1
+        assert isinstance(mcps[0].aspect, OwnershipClass)
+        assert len(mcps[0].aspect.owners) == 1
+        assert mcps[0].aspect.owners[0].owner == "urn:li:corpuser:alice"
+        assert mcps[0].aspect.owners[0].type == "TECHNICAL_OWNER"
+
     def test_build_mcps_field_level(self, handler):
         entity = {
             "dataset_urn": "urn:li:dataset:ds1",
@@ -161,6 +203,9 @@ class TestDatasetEnrichmentHandler:
             "globalTags": [{"tag": "urn:li:tag:PII"}],
             "glossaryTerms": [{"urn": "urn:li:glossaryTerm:CustomerData"}],
             "domains": ["urn:li:domain:marketing"],
+            "ownership": [
+                {"owner": "urn:li:corpuser:alice", "type": "TECHNICAL_OWNER"},
+            ],
             "editableSchemaMetadata": [
                 {
                     "fieldPath": "email",
@@ -171,5 +216,127 @@ class TestDatasetEnrichmentHandler:
         mapper = PassthroughMapper()
         mcps = handler.build_mcps(entity, mapper)
 
-        # Should produce 4 MCPs: tags, terms, domains, editableSchemaMetadata
-        assert len(mcps) == 4
+        # tags + terms + domains + ownership + editableSchemaMetadata = 5
+        assert len(mcps) == 5
+
+
+class TestGenericEnrichmentHandler:
+    @pytest.fixture
+    def governance_urns(self):
+        return {
+            "urn:li:tag:PII",
+            "urn:li:domain:marketing",
+        }
+
+    @pytest.fixture
+    def chart_handler(self, governance_urns):
+        return GenericEnrichmentHandler("chart", governance_urns)
+
+    @pytest.fixture
+    def container_handler(self, governance_urns):
+        return GenericEnrichmentHandler("container", governance_urns)
+
+    def test_entity_type_includes_kind(self, chart_handler):
+        assert chart_handler.entity_type == "chartEnrichment"
+
+    def test_dependencies(self, chart_handler):
+        deps = chart_handler.dependencies
+        assert "tag" in deps
+        assert "domain" in deps
+
+    def test_export_chart_ownership(self, chart_handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:chart:(looker,test.chart1)",
+        ]
+        mock_graph.get_tags.return_value = None
+        mock_graph.get_glossary_terms.return_value = None
+        mock_graph.get_domain.return_value = None
+        mock_graph.get_aspect.return_value = None
+
+        ownership = MagicMock(spec=OwnershipClass)
+        owner = MagicMock(spec=OwnerClass)
+        owner.owner = "urn:li:corpuser:bob@test.com"
+        owner.type = "BUSINESS_OWNER"
+        ownership.owners = [owner]
+        mock_graph.get_ownership.return_value = ownership
+
+        entities = chart_handler.export(mock_graph)
+        assert len(entities) == 1
+        assert entities[0]["entity_urn"] == "urn:li:chart:(looker,test.chart1)"
+        assert entities[0]["ownership"][0]["owner"] == "urn:li:corpuser:bob@test.com"
+
+    def test_export_container_domain(self, container_handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:container:test_db",
+        ]
+        mock_graph.get_tags.return_value = None
+        mock_graph.get_glossary_terms.return_value = None
+        mock_graph.get_ownership.return_value = None
+        mock_graph.get_aspect.return_value = None
+
+        domain = MagicMock(spec=DomainsClass)
+        domain.domains = ["urn:li:domain:marketing"]
+        mock_graph.get_domain.return_value = domain
+
+        entities = container_handler.export(mock_graph)
+        assert len(entities) == 1
+        assert entities[0]["domains"] == ["urn:li:domain:marketing"]
+
+    def test_export_skips_empty(self, chart_handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:chart:(looker,no_enrichment)",
+        ]
+        mock_graph.get_tags.return_value = None
+        mock_graph.get_glossary_terms.return_value = None
+        mock_graph.get_domain.return_value = None
+        mock_graph.get_ownership.return_value = None
+        mock_graph.get_aspect.return_value = None
+
+        entities = chart_handler.export(mock_graph)
+        assert len(entities) == 0
+
+    def test_build_mcps_ownership(self, chart_handler):
+        entity = {
+            "entity_urn": "urn:li:chart:(looker,test)",
+            "ownership": [
+                {"owner": "urn:li:corpuser:bob", "type": "BUSINESS_OWNER"},
+            ],
+        }
+        mapper = PassthroughMapper()
+        mcps = chart_handler.build_mcps(entity, mapper)
+
+        assert len(mcps) == 1
+        assert isinstance(mcps[0].aspect, OwnershipClass)
+        assert mcps[0].entityUrn == "urn:li:chart:(looker,test)"
+
+    def test_build_mcps_domains_and_tags(self, chart_handler):
+        entity = {
+            "entity_urn": "urn:li:container:test",
+            "globalTags": [{"tag": "urn:li:tag:PII"}],
+            "domains": ["urn:li:domain:marketing"],
+            "ownership": [
+                {"owner": "urn:li:corpuser:alice", "type": "TECHNICAL_OWNER"},
+            ],
+        }
+        mapper = PassthroughMapper()
+        mcps = chart_handler.build_mcps(entity, mapper)
+
+        # tags + domains + ownership = 3
+        assert len(mcps) == 3
+        aspect_types = {type(m.aspect).__name__ for m in mcps}
+        assert "GlobalTagsClass" in aspect_types
+        assert "DomainsClass" in aspect_types
+        assert "OwnershipClass" in aspect_types
+
+    def test_build_mcps_maps_owner_urns(self, chart_handler):
+        entity = {
+            "entity_urn": "urn:li:chart:test",
+            "ownership": [
+                {"owner": "urn:li:corpuser:alice", "type": "TECHNICAL_OWNER"},
+            ],
+        }
+        mapper = MagicMock()
+        mapper.map.side_effect = lambda u: u.replace("alice", "bob")
+
+        mcps = chart_handler.build_mcps(entity, mapper)
+        assert mcps[0].aspect.owners[0].owner == "urn:li:corpuser:bob"

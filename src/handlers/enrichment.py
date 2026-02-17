@@ -10,12 +10,146 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
+    OwnerClass,
+    OwnershipClass,
     TagAssociationClass,
 )
 
 from src.interfaces import EntityHandler, UrnMapper
 
 logger = logging.getLogger(__name__)
+
+# Entity types whose enrichment (tags, terms, domains, ownership) we export.
+# editableSchemaMetadata is only on datasets.
+# dataJob is excluded by default: typically high count with no user-authored enrichment.
+# Add it via --enrichment-entity-types if needed.
+ENRICHABLE_ENTITY_TYPES = [
+    "dataset",
+    "chart",
+    "dashboard",
+    "container",
+    "dataFlow",
+    "dataProduct",
+]
+
+
+def _export_common_enrichment(
+    graph: DataHubGraph,
+    urn: str,
+    governance_urns: set[str],
+    entry: dict,
+) -> bool:
+    """Export tags, terms, domains, ownership for a single entity.
+
+    Mutates entry dict in place. Returns True if any enrichment was found.
+    """
+    has_enrichment = False
+
+    # Tags
+    tags = graph.get_tags(urn)
+    if tags and tags.tags:
+        filtered = [t for t in tags.tags if str(t.tag) in governance_urns]
+        if filtered:
+            entry["globalTags"] = [{"tag": str(t.tag)} for t in filtered]
+            has_enrichment = True
+
+    # Glossary terms
+    terms = graph.get_glossary_terms(urn)
+    if terms and terms.terms:
+        filtered = [t for t in terms.terms if str(t.urn) in governance_urns]
+        if filtered:
+            entry["glossaryTerms"] = [{"urn": str(t.urn)} for t in filtered]
+            has_enrichment = True
+
+    # Domains
+    domain = graph.get_domain(urn)
+    if domain and domain.domains:
+        filtered = [d for d in domain.domains if d in governance_urns]
+        if filtered:
+            entry["domains"] = filtered
+            has_enrichment = True
+
+    # Ownership (not filtered by governance URNs -- owner URNs are identity-based)
+    ownership = graph.get_ownership(urn)
+    if ownership and ownership.owners:
+        entry["ownership"] = [
+            {
+                "owner": str(o.owner),
+                "type": str(o.type),
+            }
+            for o in ownership.owners
+        ]
+        has_enrichment = True
+
+    return has_enrichment
+
+
+def _build_common_mcps(
+    entity: dict,
+    entity_urn: str,
+    urn_mapper: UrnMapper,
+) -> list[MetadataChangeProposalWrapper]:
+    """Build MCPs for tags, terms, domains, ownership on any entity."""
+    mcps: list[MetadataChangeProposalWrapper] = []
+
+    if "globalTags" in entity:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass(tag=urn_mapper.map(t["tag"]))
+                        for t in entity["globalTags"]
+                    ]
+                ),
+            )
+        )
+
+    if "glossaryTerms" in entity:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=GlossaryTermsClass(
+                    terms=[
+                        GlossaryTermAssociationClass(
+                            urn=urn_mapper.map(t["urn"])
+                        )
+                        for t in entity["glossaryTerms"]
+                    ],
+                    auditStamp=AuditStampClass(
+                        time=0, actor="urn:li:corpuser:datahub"
+                    ),
+                ),
+            )
+        )
+
+    if "domains" in entity:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=DomainsClass(
+                    domains=[urn_mapper.map(d) for d in entity["domains"]]
+                ),
+            )
+        )
+
+    if "ownership" in entity:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=entity_urn,
+                aspect=OwnershipClass(
+                    owners=[
+                        OwnerClass(
+                            owner=urn_mapper.map(o["owner"]),
+                            type=o["type"],
+                        )
+                        for o in entity["ownership"]
+                    ]
+                ),
+            )
+        )
+
+    return mcps
 
 
 class DatasetEnrichmentHandler(EntityHandler):
@@ -32,57 +166,18 @@ class DatasetEnrichmentHandler(EntityHandler):
         return ["tag", "glossaryNode", "glossaryTerm", "domain"]
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        """Export tag/term/domain assignments on datasets + field-level metadata.
-
-        Performance: This is the most API-intensive handler -- up to 4 HTTP
-        requests per dataset (tags, terms, domain, editableSchemaMetadata).
-        Future optimization: use graph.get_entities() to batch-fetch aspects
-        for multiple datasets in a single call, or use concurrent.futures
-        to parallelize across datasets.
-        """
+        """Export tag/term/domain/ownership assignments on datasets + field-level metadata."""
         enriched = []
         dataset_urns = list(graph.get_urns_by_filter(entity_types=["dataset"]))
         total = len(dataset_urns)
         logger.info(f"Scanning {total} datasets for enrichment...")
         for i, urn in enumerate(dataset_urns):
             entry: dict = {"dataset_urn": urn}
-            has_enrichment = False
+            has_enrichment = _export_common_enrichment(
+                graph, urn, self.governance_urns, entry
+            )
 
-            # Dataset-level tags
-            tags = graph.get_tags(urn)
-            if tags and tags.tags:
-                filtered = [
-                    t for t in tags.tags if str(t.tag) in self.governance_urns
-                ]
-                if filtered:
-                    entry["globalTags"] = [
-                        {"tag": str(t.tag)} for t in filtered
-                    ]
-                    has_enrichment = True
-
-            # Dataset-level glossary terms
-            terms = graph.get_glossary_terms(urn)
-            if terms and terms.terms:
-                filtered = [
-                    t for t in terms.terms if str(t.urn) in self.governance_urns
-                ]
-                if filtered:
-                    entry["glossaryTerms"] = [
-                        {"urn": str(t.urn)} for t in filtered
-                    ]
-                    has_enrichment = True
-
-            # Dataset-level domain
-            domain = graph.get_domain(urn)
-            if domain and domain.domains:
-                filtered = [
-                    d for d in domain.domains if d in self.governance_urns
-                ]
-                if filtered:
-                    entry["domains"] = filtered
-                    has_enrichment = True
-
-            # Field-level tags/terms (editableSchemaMetadata)
+            # Field-level tags/terms (editableSchemaMetadata) -- dataset only
             esm = graph.get_aspect(urn, EditableSchemaMetadataClass)
             if esm and esm.editableSchemaFieldInfo:
                 field_entries = []
@@ -135,49 +230,8 @@ class DatasetEnrichmentHandler(EntityHandler):
     def build_mcps(
         self, entity: dict, urn_mapper: UrnMapper
     ) -> list[MetadataChangeProposalWrapper]:
-        mcps: list[MetadataChangeProposalWrapper] = []
         dataset_urn = urn_mapper.map(entity["dataset_urn"])
-
-        if "globalTags" in entity:
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=GlobalTagsClass(
-                        tags=[
-                            TagAssociationClass(tag=urn_mapper.map(t["tag"]))
-                            for t in entity["globalTags"]
-                        ]
-                    ),
-                )
-            )
-
-        if "glossaryTerms" in entity:
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=GlossaryTermsClass(
-                        terms=[
-                            GlossaryTermAssociationClass(
-                                urn=urn_mapper.map(t["urn"])
-                            )
-                            for t in entity["glossaryTerms"]
-                        ],
-                        auditStamp=AuditStampClass(
-                            time=0, actor="urn:li:corpuser:datahub"
-                        ),
-                    ),
-                )
-            )
-
-        if "domains" in entity:
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=DomainsClass(
-                        domains=[urn_mapper.map(d) for d in entity["domains"]]
-                    ),
-                )
-            )
+        mcps = _build_common_mcps(entity, dataset_urn, urn_mapper)
 
         if "editableSchemaMetadata" in entity:
             field_infos = []
@@ -213,3 +267,64 @@ class DatasetEnrichmentHandler(EntityHandler):
             )
 
         return mcps
+
+
+class GenericEnrichmentHandler(EntityHandler):
+    """Handles tag/term/domain/ownership enrichment for non-dataset entity types.
+
+    Supports: chart, dashboard, container, dataFlow, dataJob, dataProduct.
+    """
+
+    def __init__(
+        self,
+        datahub_entity_type: str,
+        governance_urns: set[str] | None = None,
+    ) -> None:
+        self._datahub_entity_type = datahub_entity_type
+        self.governance_urns = governance_urns or set()
+
+    @property
+    def entity_type(self) -> str:
+        return f"{self._datahub_entity_type}Enrichment"
+
+    @property
+    def dependencies(self) -> list[str]:
+        return ["tag", "glossaryNode", "glossaryTerm", "domain"]
+
+    def export(self, graph: DataHubGraph) -> list[dict]:
+        enriched = []
+        urns = list(
+            graph.get_urns_by_filter(
+                entity_types=[self._datahub_entity_type]
+            )
+        )
+        total = len(urns)
+        logger.info(
+            f"Scanning {total} {self._datahub_entity_type} entities "
+            f"for enrichment..."
+        )
+        for i, urn in enumerate(urns):
+            entry: dict = {"entity_urn": urn}
+            has_enrichment = _export_common_enrichment(
+                graph, urn, self.governance_urns, entry
+            )
+            if has_enrichment:
+                enriched.append(entry)
+
+            if (i + 1) % 50 == 0 or (i + 1) == total:
+                logger.info(
+                    f"  {self._datahub_entity_type} scan progress: "
+                    f"{i + 1}/{total} ({len(enriched)} enriched)"
+                )
+
+        logger.info(
+            f"Exported enrichment for {len(enriched)} "
+            f"{self._datahub_entity_type} entities"
+        )
+        return enriched
+
+    def build_mcps(
+        self, entity: dict, urn_mapper: UrnMapper
+    ) -> list[MetadataChangeProposalWrapper]:
+        entity_urn = urn_mapper.map(entity["entity_urn"])
+        return _build_common_mcps(entity, entity_urn, urn_mapper)

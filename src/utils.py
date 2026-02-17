@@ -83,7 +83,7 @@ def collect_governance_urns(exports: dict[str, list[dict]]) -> set[str]:
     to build the set of URNs used to filter enrichment.
     """
     governance_urns: set[str] = set()
-    governance_types = {"tag", "glossaryNode", "glossaryTerm", "domain"}
+    governance_types = {"tag", "glossaryNode", "glossaryTerm", "domain", "dataProduct"}
     for entity_type, entities in exports.items():
         if entity_type in governance_types:
             for entity in entities:
