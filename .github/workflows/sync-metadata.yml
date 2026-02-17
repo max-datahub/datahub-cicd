@@ -1,0 +1,49 @@
+name: Sync Metadata
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview without writing to prod"
+        type: boolean
+        default: true
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - run: python -m src.cli.export_cmd --output-dir metadata/
+        env:
+          DATAHUB_DEV_URL: ${{ secrets.DATAHUB_DEV_URL }}
+          DATAHUB_DEV_TOKEN: ${{ secrets.DATAHUB_DEV_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: governance
+          path: metadata/
+
+  sync:
+    needs: [export]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: governance
+          path: metadata/
+      - run: >
+          python -m src.cli.sync_cmd
+          --governance-dir metadata/
+          ${{ inputs.dry_run == true && '--dry-run' || '' }}
+        env:
+          DATAHUB_DEV_URL: ${{ secrets.DATAHUB_DEV_URL }}
+          DATAHUB_DEV_TOKEN: ${{ secrets.DATAHUB_DEV_TOKEN }}
+          DATAHUB_PROD_URL: ${{ secrets.DATAHUB_PROD_URL }}
+          DATAHUB_PROD_TOKEN: ${{ secrets.DATAHUB_PROD_TOKEN }}
