@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from datahub.ingestion.graph.client import DataHubGraph
 
@@ -9,10 +10,21 @@ from src.utils import write_json
 
 logger = logging.getLogger(__name__)
 
+# Progress is logged every N entities during sync.
+_PROGRESS_INTERVAL = 50
+
 
 class SyncOrchestrator:
     """Runs export and sync in dependency-resolved phase order.
-    Tracks per-entity results. Reports summary."""
+    Tracks per-entity results. Reports summary.
+
+    Performance architecture:
+    - Handlers run sequentially in dependency order (required for correctness)
+    - Within a handler, entities are processed sequentially but MCPs are
+      emitted via WriteStrategy which can batch internally
+    - Future: handlers with no inter-dependencies could run concurrently
+      (e.g., tag and domain handlers have no dependency on each other)
+    """
 
     def __init__(
         self,
@@ -32,11 +44,27 @@ class SyncOrchestrator:
         exports: dict[str, list[dict]] = {}
         for handler in self.registry.get_sync_order():
             logger.info(f"Exporting {handler.entity_type}...")
+            t0 = time.monotonic()
             entities = handler.export(graph)
+            elapsed = time.monotonic() - t0
             exports[handler.entity_type] = entities
             output_path = os.path.join(output_dir, f"{handler.entity_type}.json")
             write_json(entities, output_path)
+            logger.info(
+                f"Exported {len(entities)} {handler.entity_type} "
+                f"entities in {elapsed:.1f}s"
+            )
         return exports
+
+    def export_single(
+        self,
+        handler: "EntityHandler",
+        entities: list[dict],
+        output_dir: str,
+    ) -> None:
+        """Write a single handler's entities to a JSON file."""
+        output_path = os.path.join(output_dir, f"{handler.entity_type}.json")
+        write_json(entities, output_path)
 
     def sync_all(
         self, graph: DataHubGraph, exports: dict[str, list[dict]]
@@ -63,7 +91,8 @@ class SyncOrchestrator:
             logger.info(
                 f"Syncing {len(entities)} {handler.entity_type} entities..."
             )
-            for entity in entities:
+            t0 = time.monotonic()
+            for i, entity in enumerate(entities):
                 urn = entity.get("urn") or entity.get("dataset_urn", "unknown")
                 try:
                     mcps = handler.build_mcps(entity, self.urn_mapper)
@@ -79,6 +108,18 @@ class SyncOrchestrator:
                             handler.entity_type, urn, "failed", str(e)
                         )
                     )
+
+                if (i + 1) % _PROGRESS_INTERVAL == 0:
+                    logger.info(
+                        f"  Progress: {i + 1}/{len(entities)} "
+                        f"{handler.entity_type} entities"
+                    )
+
+            elapsed = time.monotonic() - t0
+            logger.info(
+                f"Synced {len(entities)} {handler.entity_type} "
+                f"entities in {elapsed:.1f}s"
+            )
 
         return self.results
 

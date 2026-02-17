@@ -54,6 +54,33 @@ class TestGlossaryNodeHandler:
         assert entities[0]["urn"] == "urn:li:glossaryNode:parent"
         assert entities[1]["urn"] == "urn:li:glossaryNode:child"
 
+    def test_export_derives_name_from_urn_when_null(self, handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:glossaryNode:market_analytics",
+        ]
+        info = MagicMock(spec=GlossaryNodeInfoClass)
+        info.name = None  # Name not set in DataHub
+        info.definition = "Analytics"
+        info.parentNode = None
+        mock_graph.get_aspect.return_value = info
+
+        entities = handler.export(mock_graph)
+        assert len(entities) == 1
+        assert entities[0]["name"] == "market_analytics"
+
+    def test_export_preserves_explicit_name(self, handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:glossaryNode:customer",
+        ]
+        info = MagicMock(spec=GlossaryNodeInfoClass)
+        info.name = "Customer Domain"
+        info.definition = "Customer stuff"
+        info.parentNode = None
+        mock_graph.get_aspect.return_value = info
+
+        entities = handler.export(mock_graph)
+        assert entities[0]["name"] == "Customer Domain"
+
     def test_build_mcps_with_parent(self, handler):
         entity = {
             "urn": "urn:li:glossaryNode:child",
@@ -113,6 +140,35 @@ class TestGlossaryTermHandler:
         assert entities[0]["name"] == "Term1"
         assert entities[0]["parentNode"] == "urn:li:glossaryNode:node1"
 
+    def test_export_derives_name_from_urn_when_null(self, handler, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:glossaryTerm:customer_id",
+        ]
+        term_info = MagicMock(spec=GlossaryTermInfoClass)
+        term_info.name = None
+        term_info.definition = "Unique identifier"
+        term_info.termSource = "INTERNAL"
+        term_info.parentNode = None
+        mock_graph.get_aspect.return_value = term_info
+
+        entities = handler.export(mock_graph)
+        assert entities[0]["name"] == "customer_id"
+
+    def test_export_preserves_urn_termsource(self, handler, mock_graph):
+        """termSource may be stored as a URN in some DataHub instances."""
+        mock_graph.get_urns_by_filter.return_value = [
+            "urn:li:glossaryTerm:customer_id",
+        ]
+        term_info = MagicMock(spec=GlossaryTermInfoClass)
+        term_info.name = None
+        term_info.definition = "An identifier"
+        term_info.termSource = "urn:li:glossaryNode:customer"
+        term_info.parentNode = "urn:li:glossaryNode:customer"
+        mock_graph.get_aspect.return_value = term_info
+
+        entities = handler.export(mock_graph)
+        assert entities[0]["termSource"] == "urn:li:glossaryNode:customer"
+
     def test_build_mcps(self, handler):
         entity = {
             "urn": "urn:li:glossaryTerm:term1",
@@ -130,6 +186,20 @@ class TestGlossaryTermHandler:
         assert isinstance(mcp.aspect, GlossaryTermInfoClass)
         assert mcp.aspect.termSource == "INTERNAL"
         assert mcp.aspect.parentNode == "urn:li:glossaryNode:node1"
+
+    def test_build_mcps_maps_urn_termsource(self, handler):
+        """When termSource is a URN, it should be mapped through urn_mapper."""
+        entity = {
+            "urn": "urn:li:glossaryTerm:customer_id",
+            "name": "customer_id",
+            "definition": "An identifier",
+            "termSource": "urn:li:glossaryNode:customer",
+            "parentNode": "urn:li:glossaryNode:customer",
+        }
+        mapper = PassthroughMapper()
+        mcps = handler.build_mcps(entity, mapper)
+
+        assert mcps[0].aspect.termSource == "urn:li:glossaryNode:customer"
 
     def test_build_mcps_no_parent(self, handler):
         entity = {

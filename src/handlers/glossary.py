@@ -8,7 +8,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from src.interfaces import EntityHandler, UrnMapper
-from src.utils import topological_sort
+from src.utils import name_from_urn, topological_sort
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +31,11 @@ class GlossaryNodeHandler(EntityHandler):
                 continue
             info = graph.get_aspect(urn, GlossaryNodeInfoClass)
             if info:
+                name = info.name or name_from_urn(urn)
                 entities.append(
                     {
                         "urn": urn,
-                        "name": info.name,
+                        "name": name,
                         "definition": info.definition,
                         "parentNode": info.parentNode,
                     }
@@ -85,10 +86,14 @@ class GlossaryTermHandler(EntityHandler):
                 continue
             info = graph.get_aspect(urn, GlossaryTermInfoClass)
             if info:
+                name = info.name or name_from_urn(urn)
+                # termSource may be stored as a URN (e.g. parent node URN)
+                # in some DataHub instances. Pass through as-is to preserve
+                # fidelity with the source.
                 entities.append(
                     {
                         "urn": urn,
-                        "name": info.name,
+                        "name": name,
                         "definition": info.definition,
                         "termSource": info.termSource,
                         "parentNode": info.parentNode,
@@ -107,13 +112,17 @@ class GlossaryTermHandler(EntityHandler):
             if entity.get("parentNode")
             else None
         )
+        # Map termSource through urn_mapper if it looks like a URN
+        term_source = entity.get("termSource", "INTERNAL")
+        if term_source and term_source.startswith("urn:"):
+            term_source = urn_mapper.map(term_source)
         return [
             MetadataChangeProposalWrapper(
                 entityUrn=target_urn,
                 aspect=GlossaryTermInfoClass(
                     definition=entity.get("definition", ""),
                     name=entity.get("name"),
-                    termSource=entity.get("termSource", "INTERNAL"),
+                    termSource=term_source,
                     parentNode=parent,
                 ),
             )

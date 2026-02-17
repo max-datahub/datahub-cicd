@@ -61,6 +61,38 @@ def topological_sort(entities: list[dict], parent_key: str) -> list[dict]:
     return [urn_to_entity[urn] for urn in sorted_urns]
 
 
+def name_from_urn(urn: str) -> str:
+    """Derive a display name from a URN.
+
+    Examples:
+        urn:li:tag:PII -> PII
+        urn:li:glossaryTerm:customer_id -> customer_id
+        urn:li:domain:financial_securities -> financial_securities
+    """
+    # URN format: urn:li:<entity_type>:<id>
+    parts = urn.split(":")
+    if len(parts) >= 4:
+        return parts[-1]
+    return urn
+
+
+def collect_governance_urns(exports: dict[str, list[dict]]) -> set[str]:
+    """Collect all governance entity URNs from export data.
+
+    Scans tag, glossaryNode, glossaryTerm, and domain exports
+    to build the set of URNs used to filter enrichment.
+    """
+    governance_urns: set[str] = set()
+    governance_types = {"tag", "glossaryNode", "glossaryTerm", "domain"}
+    for entity_type, entities in exports.items():
+        if entity_type in governance_types:
+            for entity in entities:
+                urn = entity.get("urn")
+                if urn:
+                    governance_urns.add(urn)
+    return governance_urns
+
+
 def write_json(data: list[dict], path: str) -> None:
     """Write a list of dicts to a JSON file."""
     filepath = Path(path)

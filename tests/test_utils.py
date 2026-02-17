@@ -4,7 +4,13 @@ import tempfile
 
 import pytest
 
-from src.utils import read_json, topological_sort, write_json
+from src.utils import (
+    collect_governance_urns,
+    name_from_urn,
+    read_json,
+    topological_sort,
+    write_json,
+)
 
 
 class TestTopologicalSort:
@@ -87,6 +93,53 @@ class TestTopologicalSort:
         # All children come after parent
         for child in ["urn:child1", "urn:child2", "urn:child3"]:
             assert child in urns
+
+
+class TestNameFromUrn:
+    def test_tag_urn(self):
+        assert name_from_urn("urn:li:tag:PII") == "PII"
+
+    def test_glossary_term_urn(self):
+        assert name_from_urn("urn:li:glossaryTerm:customer_id") == "customer_id"
+
+    def test_domain_urn(self):
+        assert name_from_urn("urn:li:domain:financial_securities") == "financial_securities"
+
+    def test_glossary_node_urn(self):
+        assert name_from_urn("urn:li:glossaryNode:market_analytics") == "market_analytics"
+
+    def test_short_string(self):
+        assert name_from_urn("nourn") == "nourn"
+
+
+class TestCollectGovernanceUrns:
+    def test_collects_from_all_governance_types(self):
+        exports = {
+            "tag": [{"urn": "urn:li:tag:PII"}],
+            "glossaryNode": [{"urn": "urn:li:glossaryNode:customer"}],
+            "glossaryTerm": [{"urn": "urn:li:glossaryTerm:customer_id"}],
+            "domain": [{"urn": "urn:li:domain:marketing"}],
+            "enrichment": [{"dataset_urn": "urn:li:dataset:ds1"}],
+        }
+        urns = collect_governance_urns(exports)
+        assert urns == {
+            "urn:li:tag:PII",
+            "urn:li:glossaryNode:customer",
+            "urn:li:glossaryTerm:customer_id",
+            "urn:li:domain:marketing",
+        }
+
+    def test_excludes_enrichment(self):
+        exports = {
+            "enrichment": [
+                {"dataset_urn": "urn:li:dataset:ds1", "urn": "should_not_be_included"},
+            ],
+        }
+        urns = collect_governance_urns(exports)
+        assert len(urns) == 0
+
+    def test_empty_exports(self):
+        assert collect_governance_urns({}) == set()
 
 
 class TestJsonIO:

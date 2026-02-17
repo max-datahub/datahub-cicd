@@ -32,9 +32,19 @@ class DatasetEnrichmentHandler(EntityHandler):
         return ["tag", "glossaryNode", "glossaryTerm", "domain"]
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        """Export tag/term/domain assignments on datasets + field-level metadata."""
+        """Export tag/term/domain assignments on datasets + field-level metadata.
+
+        Performance: This is the most API-intensive handler -- up to 4 HTTP
+        requests per dataset (tags, terms, domain, editableSchemaMetadata).
+        Future optimization: use graph.get_entities() to batch-fetch aspects
+        for multiple datasets in a single call, or use concurrent.futures
+        to parallelize across datasets.
+        """
         enriched = []
-        for urn in graph.get_urns_by_filter(entity_types=["dataset"]):
+        dataset_urns = list(graph.get_urns_by_filter(entity_types=["dataset"]))
+        total = len(dataset_urns)
+        logger.info(f"Scanning {total} datasets for enrichment...")
+        for i, urn in enumerate(dataset_urns):
             entry: dict = {"dataset_urn": urn}
             has_enrichment = False
 
@@ -112,6 +122,12 @@ class DatasetEnrichmentHandler(EntityHandler):
 
             if has_enrichment:
                 enriched.append(entry)
+
+            if (i + 1) % 50 == 0 or (i + 1) == total:
+                logger.info(
+                    f"  Enrichment scan progress: {i + 1}/{total} datasets "
+                    f"({len(enriched)} enriched)"
+                )
 
         logger.info(f"Exported enrichment for {len(enriched)} datasets")
         return enriched

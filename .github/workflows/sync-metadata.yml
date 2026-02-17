@@ -22,7 +22,7 @@ jobs:
           DATAHUB_DEV_TOKEN: ${{ secrets.DATAHUB_DEV_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
-          name: governance
+          name: metadata
           path: metadata/
 
   sync:
@@ -36,14 +36,12 @@ jobs:
       - run: pip install -r requirements.txt
       - uses: actions/download-artifact@v4
         with:
-          name: governance
+          name: metadata
           path: metadata/
       - run: >
           python -m src.cli.sync_cmd
-          --governance-dir metadata/
+          --metadata-dir metadata/
           ${{ inputs.dry_run == true && '--dry-run' || '' }}
         env:
-          DATAHUB_DEV_URL: ${{ secrets.DATAHUB_DEV_URL }}
-          DATAHUB_DEV_TOKEN: ${{ secrets.DATAHUB_DEV_TOKEN }}
           DATAHUB_PROD_URL: ${{ secrets.DATAHUB_PROD_URL }}
           DATAHUB_PROD_TOKEN: ${{ secrets.DATAHUB_PROD_TOKEN }}

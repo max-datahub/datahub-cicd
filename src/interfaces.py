@@ -25,13 +25,38 @@ class UrnMapper(ABC):
 
 
 class WriteStrategy(ABC):
-    """Controls how MCPs are written to the target DataHub."""
+    """Controls how MCPs are written to the target DataHub.
+
+    Performance: Implementations should batch MCPs where possible.
+    The emit() method receives all MCPs for a single entity;
+    emit_batch() receives all MCPs for a handler phase and can
+    optimize across entities (e.g., via graph.emit_mcps()).
+    """
 
     @abstractmethod
     def emit(
         self, graph: DataHubGraph, mcps: list[MetadataChangeProposalWrapper]
     ) -> list[SyncResult]:
+        """Emit MCPs for a single entity."""
         ...
+
+    def emit_batch(
+        self,
+        graph: DataHubGraph,
+        mcp_groups: list[tuple[str, list[MetadataChangeProposalWrapper]]],
+    ) -> list[SyncResult]:
+        """Emit MCPs for multiple entities in a batch.
+
+        Args:
+            mcp_groups: List of (urn, mcps) tuples, one per entity.
+
+        Default implementation delegates to emit() per entity.
+        Override for batch-optimized writes.
+        """
+        results = []
+        for _urn, mcps in mcp_groups:
+            results.extend(self.emit(graph, mcps))
+        return results
 
 
 class EntityHandler(ABC):
@@ -41,6 +66,11 @@ class EntityHandler(ABC):
     1. Subclass EntityHandler
     2. Implement entity_type, export(), build_mcps()
     3. Register in src/handlers/__init__.py
+
+    Performance notes:
+    - export() should log progress for large entity counts
+    - Handlers with no inter-dependencies can run concurrently
+      (see SyncOrchestrator)
     """
 
     @property
@@ -58,7 +88,8 @@ class EntityHandler(ABC):
     @abstractmethod
     def export(self, graph: DataHubGraph) -> list[dict]:
         """Export all entities of this type from a DataHub instance.
-        Must handle pagination internally.
+        Must handle pagination internally (SDK handles this via
+        get_urns_by_filter's scroll-based iteration).
         Must filter system entities via is_system_entity()."""
         ...
 

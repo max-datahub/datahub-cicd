@@ -1,7 +1,8 @@
 """CLI: Sync governance + enrichment to prod DataHub.
 
 Usage:
-    python -m src.cli.sync_cmd --governance-dir metadata/ [--dry-run]
+    python -m src.cli.sync_cmd --metadata-dir metadata/ [--dry-run]
+    python -m src.cli.sync_cmd --metadata-dir metadata/ --live-enrichment [--dry-run]
 """
 
 import argparse
@@ -14,7 +15,7 @@ from src.handlers import create_default_registry
 from src.handlers.enrichment import DatasetEnrichmentHandler
 from src.orchestrator import SyncOrchestrator
 from src.urn_mapper import PassthroughMapper
-from src.utils import read_json
+from src.utils import collect_governance_urns, read_json
 from src.write_strategy import DryRunStrategy, OverwriteStrategy
 
 logging.basicConfig(
@@ -29,47 +30,63 @@ def main() -> None:
         description="Sync governance and enrichment to prod DataHub"
     )
     parser.add_argument(
-        "--governance-dir",
+        "--metadata-dir",
         required=True,
-        help="Directory containing exported governance JSON files",
+        help="Directory containing exported JSON files (governance + enrichment)",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Preview MCPs without writing to prod",
     )
+    parser.add_argument(
+        "--live-enrichment",
+        action="store_true",
+        help=(
+            "Export enrichment live from dev instead of reading from files. "
+            "Requires DATAHUB_DEV_URL and DATAHUB_DEV_TOKEN."
+        ),
+    )
     args = parser.parse_args()
 
     # Load governance entities from JSON files
-    governance_dir = args.governance_dir
+    metadata_dir = args.metadata_dir
     exports: dict[str, list[dict]] = {}
-    governance_urns: set[str] = set()
 
     registry = create_default_registry()
     for handler in registry.get_all_handlers():
-        filepath = os.path.join(governance_dir, f"{handler.entity_type}.json")
+        filepath = os.path.join(metadata_dir, f"{handler.entity_type}.json")
         entities = read_json(filepath)
         exports[handler.entity_type] = entities
-        for entity in entities:
-            urn = entity.get("urn")
-            if urn:
-                governance_urns.add(urn)
 
+    governance_urns = collect_governance_urns(exports)
     logger.info(
         f"Loaded {sum(len(v) for v in exports.values())} governance entities "
         f"({len(governance_urns)} URNs)"
     )
 
-    # Export enrichment live from dev
-    logger.info("Connecting to dev DataHub for enrichment export...")
-    dev_graph = get_dev_graph()
-    enrichment_handler = DatasetEnrichmentHandler(
-        governance_urns=governance_urns
-    )
-    enrichment_entities = enrichment_handler.export(dev_graph)
-    exports["enrichment"] = enrichment_entities
+    # Load or export enrichment
+    if args.live_enrichment:
+        logger.info("Connecting to dev DataHub for live enrichment export...")
+        dev_graph = get_dev_graph()
+        enrichment_handler = DatasetEnrichmentHandler(
+            governance_urns=governance_urns
+        )
+        enrichment_entities = enrichment_handler.export(dev_graph)
+    else:
+        enrichment_path = os.path.join(metadata_dir, "enrichment.json")
+        enrichment_entities = read_json(enrichment_path)
+        enrichment_handler = DatasetEnrichmentHandler(
+            governance_urns=governance_urns
+        )
+        if not enrichment_entities:
+            logger.warning(
+                f"No enrichment file at {enrichment_path}. "
+                f"Use --live-enrichment to export from dev, or run "
+                f"export_cmd first."
+            )
 
-    # Register enrichment handler
+    exports["enrichment"] = enrichment_entities
     registry.register(enrichment_handler)
 
     # Set up write strategy

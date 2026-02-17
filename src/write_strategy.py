@@ -7,9 +7,22 @@ from src.interfaces import SyncResult, WriteStrategy
 
 logger = logging.getLogger(__name__)
 
+# Default batch size for bulk MCP emission.
+# Each MCP is one HTTP request in non-batch mode; batch mode sends
+# multiple MCPs in a single request via graph.emit_mcps().
+DEFAULT_BATCH_SIZE = 100
+
 
 class OverwriteStrategy(WriteStrategy):
-    """Full UPSERT -- replaces existing aspect entirely."""
+    """Full UPSERT -- replaces existing aspect entirely.
+
+    Uses per-MCP emission with per-MCP error tracking so that a single
+    failure does not abort the entire batch.
+
+    Performance: For high-throughput scenarios, override emit_batch()
+    to use graph.emit_mcps() which sends multiple MCPs in fewer HTTP
+    round-trips (but loses per-MCP error granularity on failure).
+    """
 
     def emit(
         self, graph: DataHubGraph, mcps: list[MetadataChangeProposalWrapper]
