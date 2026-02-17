@@ -293,26 +293,45 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 
 ## Assumptions
 
-1. **Prod is greenfield** (or willing to accept dev URNs overwriting existing entities)
-2. **All data sources are ingested into all DataHub environments** (identical dataset URNs). A dataset `urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.users,PROD)` must exist in both dev and prod DataHub.
-3. **No manual edits in prod** (will be overwritten on next sync)
-4. **Dev and prod DataHub APIs are accessible** from the CI/CD runner (network + auth token)
-5. **Entity counts are manageable** for in-memory processing (pagination handles scale, but no streaming for very large deployments)
-6. **Governance entity URNs are identical** in dev and prod (UUID passthrough). This requires entities to have been created via API/SDK with explicit IDs, or both environments to share the same creation history. If entities were created via the DataHub UI (which generates random UUIDs), URNs will differ and a `UrnMapper` implementation beyond `PassthroughMapper` is required.
+1. **Governance entity URNs are identical in dev and prod** (UUID passthrough). DataHub generates random UUIDs when entities are created via the UI. This pipeline assumes governance entities were created via API/SDK with explicit IDs, or both environments share the same creation history. If URNs diverge, a `UrnMapper` implementation beyond `PassthroughMapper` is required (see Phase 5). There is no name-based deduplication -- creating a tag named "PII" in both environments independently produces two different URNs and the sync will create a duplicate.
+2. **Dataset URNs are identical across environments** (many-to-many ingestion topology). Both dev and prod DataHub ingest from the same data sources, producing identical dataset URNs. If environments have different platform instances, database names, or env suffixes, dataset URNs will diverge and enrichment references will break silently (DataHub does not validate URN references at write time).
+3. **Prod is greenfield or dev-authoritative**. Prod receives governance metadata exclusively via this pipeline. Any enrichment applied directly in prod (tags, terms, domain assignments, ownership) will be overwritten on the next sync because DataHub's UPSERT replaces the entire aspect, not individual items within it.
+4. **No manual edits in prod**. DataHub's UPSERT write semantics mean every sync fully replaces each aspect. If a prod admin adds a third owner to a dataset, the next sync overwrites the ownership aspect with dev's version, silently removing the prod-only owner.
+5. **Dev and prod DataHub APIs are accessible** from the CI/CD runner (network connectivity + auth token).
+6. **Entity counts are manageable** for in-memory processing. The SDK's scroll-based pagination handles arbitrarily large entity sets, but all exported data is held in memory. For very large deployments (100k+ datasets), streaming or chunked processing may be needed.
 
 ## Limitations
+
+### DataHub Data Model Constraints
+
+These are inherent properties of DataHub's data model that affect any cross-environment sync tool, not limitations specific to this implementation.
+
+| Constraint | Impact | Current Mitigation |
+|---|---|---|
+| **UPSERT = full aspect replace** | Writing any aspect (tags, terms, ownership, etc.) replaces the entire previous value. There is no atomic add/remove of individual items within a list-valued aspect. | By design: dev is authoritative. Future: `MergeStrategy` (read-merge-write) or `PatchStrategy` (SDK patch builders). |
+| **No write-time reference validation** | DataHub silently accepts aspects referencing non-existent entities (e.g., a tag assignment referencing a tag URN that was never created). Only `structuredProperties` validates at write time. For all other aspects (globalTags, glossaryTerms, domains, ownership, parentNode), dangling references are stored without error. | Dependency-ordered execution ensures definitions exist before assignments. However, if a definition sync fails, subsequent enrichment proceeds with dangling references. No pre-flight existence check. |
+| **No transaction atomicity** | Each MCP is an independent write. A sync of 100 entities can leave 50 applied and 50 unapplied if the process fails midway. There is no multi-MCP atomic commit or server-side rollback. | Per-entity result tracking with error reporting. Re-running is safe (idempotent under full overwrite). No resume-from-checkpoint yet. |
+| **No deletion propagation** | DataHub's ingestion model is additive (UPSERT creates/updates, never deletes). Entities deleted in dev remain in prod. Enrichment removed in dev may persist in prod if the dataset loses all enrichment (the handler exports nothing, leaving stale aspects). | Manual cleanup in prod. If a dataset retains _some_ enrichment, full overwrite correctly removes deleted items from the aspect. |
+| **UUID URNs by default** | Most governance entity types (tags, glossary, domains, data products, forms, policies, ownership types) generate random UUID URNs when created via the DataHub UI. The same logical entity created independently in two environments will have different URNs, causing duplicates on sync. | UUID passthrough assumption (entities created only in dev). Future: `NameBasedMapper` for environments with independent entity creation. |
+| **Dataset URNs encode environment specifics** | Dataset URNs include platform instance, database name, and environment/fabric type. The same physical table in dev and prod typically has different URNs unless ingestion is configured identically. | Many-to-many ingestion assumption (identical URNs). Future: `PatternMapper` or `MappingFileMapper` for divergent URNs. |
+| **No provenance on aspects** | DataHub does not track whether an aspect was applied by a human, an ingestion pipeline, or a CI/CD tool. Enrichment authored in dev is indistinguishable from enrichment applied by automated processes. | Governance URN filtering: only enrichment referencing exported governance entities is synced. Ownership is synced unfiltered (identity-based URNs). |
+| **System entity discrimination is ad-hoc** | There is no universal `isSystemEntity` flag. System tags use `__default_*` prefix, system ownership types use `__system__*` prefix, system policies have `editable: false`. Each entity type requires its own filtering rule, discovered empirically. | Per-handler `is_system_entity()` with type-specific rules. |
+| **Entity discoverability gaps** | Three entity types (`dataHubPolicy`, `form`, `ownershipType`) lack `searchGroup` annotations in DataHub's entity registry, making them invisible to the standard `get_urns_by_filter()` API. They require entity-specific GraphQL queries. | Not yet relevant (these are planned entity types). Handlers will need custom discovery when implemented. |
+| **Glossary term names may be null** | DataHub does not always populate `GlossaryTermInfo.name`. Terms created via certain code paths or older SDK versions may have null names. | Names derived from URN when null. |
+| **`termSource` field may store URNs** | Some DataHub instances store the parent node URN in `GlossaryTermInfo.termSource` instead of the expected enum value (`INTERNAL`/`EXTERNAL`). | Passed through as-is. Mapped through `UrnMapper` if it looks like a URN. |
+
+### Pipeline Limitations
 
 | Limitation | Impact | Workaround |
 |---|---|---|
 | No merge/conflict resolution | Prod enrichment overwritten on every sync | Don't edit prod directly; dev is authoritative |
-| No deletion sync | Entities deleted in dev remain in prod | Manually delete orphans in prod |
-| No drift detection | No comparison between export state and live DataHub | Re-run export to get latest state |
-| No rollback | No undo for a bad sync | Re-run sync from dev (dev is authoritative) |
-| No staging environment | No pre-production validation | Use `--dry-run` mode |
-| Glossary term names may be null | DataHub doesn't always populate `GlossaryTermInfo.name` | Names derived from URN when null |
-| `termSource` field may contain URNs | Some DataHub instances store parent node URN instead of INTERNAL/EXTERNAL | Passed through as-is to preserve fidelity |
-| Enrichment not version-controlled | Enrichment JSON files are snapshots, not diffs | Re-export before each sync |
-| UPSERT replaces entire aspect | Writing 1 tag to a dataset replaces ALL existing tags, not just adding one | By design (dev is authoritative). Future: MergeStrategy or PatchStrategy. |
+| No deletion sync | Entities deleted in dev remain in prod indefinitely | Manually delete orphans in prod |
+| No drift detection | No comparison between export state and live DataHub state | Re-run export to get latest state |
+| No rollback | No undo for a bad sync | Re-run sync from dev (idempotent under full overwrite) |
+| No resume on failure | Partial failures require re-running entire sync | Per-entity error tracking identifies failures; re-run is safe |
+| No pre-flight validation | Referenced URNs are not checked for existence in prod before writing | Dependency ordering prevents most issues; edge cases require manual verification |
+| No staging environment | No pre-production validation environment | Use `--dry-run` mode to preview MCPs |
+| Enrichment not version-controlled | Enrichment JSON files are point-in-time snapshots, not diffs | Re-export before each sync to capture latest state |
 
 ## Roadmap
 
