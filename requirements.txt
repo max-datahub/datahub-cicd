@@ -1,2 +1,2 @@
-acryl-datahub>=1.0.0.3
-pytest>=7.0
+acryl-datahub>=1.4.0
+pytest>=8.0

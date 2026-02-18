@@ -1,19 +1,19 @@
 [build-system]
-requires = ["setuptools>=68.0"]
+requires = ["setuptools>=82.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "datahub-cicd"
 version = "0.1.0"
 description = "CI/CD pipeline for DataHub governance metadata"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "acryl-datahub>=1.0.0.3",
+    "acryl-datahub>=1.4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
+    "pytest>=8.0",
 ]
 
 [tool.setuptools.packages.find]
