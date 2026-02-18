@@ -1,10 +1,13 @@
 import logging
+import traceback
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SystemMetadataClass
 
-from src.interfaces import SyncResult, WriteStrategy
+from src.error_classification import classify_error
+from src.interfaces import SKIP_DRY_RUN, SyncResult, WriteStrategy
+from src.retry import retry_transient
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +41,12 @@ class OverwriteStrategy(WriteStrategy):
         for mcp in mcps:
             try:
                 mcp.systemMetadata = CICD_SYSTEM_METADATA
-                graph.emit_mcp(mcp)
+
+                @retry_transient(max_retries=3, base_delay=1.0)
+                def _emit():
+                    graph.emit_mcp(mcp)
+
+                _emit()
                 results.append(
                     SyncResult(
                         entity_type=mcp.entityType,
@@ -47,6 +55,12 @@ class OverwriteStrategy(WriteStrategy):
                     )
                 )
             except Exception as e:
+                logger.debug(
+                    f"Failed to emit {mcp.entityType} {mcp.entityUrn} "
+                    f"aspect={mcp.aspectName}",
+                    exc_info=True,
+                )
+                category, suggestion = classify_error(e)
                 logger.error(
                     f"Failed to emit {mcp.entityType} {mcp.entityUrn} "
                     f"aspect={mcp.aspectName}: {e}"
@@ -57,6 +71,9 @@ class OverwriteStrategy(WriteStrategy):
                         urn=mcp.entityUrn,
                         status="failed",
                         error=str(e),
+                        traceback=traceback.format_exc(),
+                        error_category=category,
+                        error_suggestion=suggestion,
                     )
                 )
         return results
@@ -79,6 +96,7 @@ class DryRunStrategy(WriteStrategy):
                     entity_type=mcp.entityType,
                     urn=mcp.entityUrn,
                     status="skipped",
+                    skip_reason=SKIP_DRY_RUN,
                 )
             )
         return results

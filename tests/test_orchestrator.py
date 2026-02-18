@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.interfaces import EntityHandler, SyncResult, UrnMapper
-from src.orchestrator import SyncOrchestrator
+from src.orchestrator import SyncOrchestrator, _progress_interval
 from src.registry import HandlerRegistry
 from src.urn_mapper import PassthroughMapper
 from src.write_strategy import DryRunStrategy, OverwriteStrategy
@@ -27,6 +27,17 @@ class StubHandler(EntityHandler):
 
     def build_mcps(self, entity, urn_mapper):
         return []
+
+
+class TestProgressInterval:
+    def test_small_runs(self):
+        assert _progress_interval(50) == 25
+
+    def test_medium_runs(self):
+        assert _progress_interval(500) == 50
+
+    def test_large_runs(self):
+        assert _progress_interval(5000) == 100
 
 
 class TestSyncOrchestrator:
@@ -124,6 +135,8 @@ class TestSyncOrchestrator:
         assert len(results) == 1
         assert results[0].status == "failed"
         assert "test error" in results[0].error
+        assert results[0].error_category == "data_error"
+        assert results[0].traceback is not None
         assert orchestrator.has_failures()
 
     def test_validation_failure_skips_sync(self, mock_graph):
@@ -156,7 +169,7 @@ class TestSyncOrchestrator:
         orchestrator.sync_all(mock_graph, {})
         assert not orchestrator.has_failures()
 
-    def test_print_summary(self, mock_graph, capsys):
+    def test_print_summary_logs(self, mock_graph, caplog):
         registry = HandlerRegistry()
         registry.register(StubHandler("tag"))
         orchestrator = SyncOrchestrator(
@@ -169,9 +182,40 @@ class TestSyncOrchestrator:
             SyncResult("tag", "urn:b", "failed", "some error"),
             SyncResult("tag", "urn:c", "skipped"),
         ]
-        orchestrator.print_summary()
-        captured = capsys.readouterr()
-        assert "1 succeeded" in captured.out
-        assert "1 failed" in captured.out
-        assert "1 skipped" in captured.out
-        assert "some error" in captured.out
+        with caplog.at_level("INFO"):
+            orchestrator.print_summary()
+        assert "1 succeeded" in caplog.text
+        assert "1 failed" in caplog.text
+        assert "1 skipped" in caplog.text
+        assert "some error" in caplog.text
+
+    def test_incremental_state_written(self, mock_graph, tmp_path):
+        import os
+
+        registry = HandlerRegistry()
+        registry.register(StubHandler("tag"))
+        orchestrator = SyncOrchestrator(
+            registry=registry,
+            urn_mapper=PassthroughMapper(),
+            write_strategy=DryRunStrategy(),
+            run_id="test123",
+            output_dir=str(tmp_path),
+        )
+
+        class ExportHandler(StubHandler):
+            def export(self, graph):
+                return [{"urn": "urn:li:tag:a"}]
+
+        registry._handlers["tag"] = ExportHandler("tag")
+
+        orchestrator.export_all(mock_graph, str(tmp_path))
+
+        state_path = os.path.join(str(tmp_path), ".run-state.json")
+        assert os.path.exists(state_path)
+
+        import json
+        with open(state_path) as f:
+            state = json.load(f)
+        assert state["run_id"] == "test123"
+        assert state["status"] == "in_progress"
+        assert len(state["completed_phases"]) >= 1

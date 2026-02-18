@@ -7,7 +7,9 @@ DataHub tracks provenance via `systemMetadata.properties`:
 
 Usage:
     source = classify_provenance(graph, urn, "tagProperties")
-    filtered = filter_entities_by_provenance(graph, entities, "tag", {ProvenanceSource.UI})
+    kept, filtered_out = filter_entities_by_provenance(
+        graph, entities, "tag", {ProvenanceSource.UI}
+    )
 """
 
 import logging
@@ -58,6 +60,10 @@ def classify_provenance(
     try:
         mcpws = graph.get_entity_as_mcps(urn, aspects=[aspect_name])
     except Exception as e:
+        logger.debug(
+            f"Failed to get systemMetadata for {urn}",
+            exc_info=True,
+        )
         logger.warning(f"Failed to get systemMetadata for {urn}: {e}")
         return ProvenanceSource.UNKNOWN
 
@@ -98,7 +104,7 @@ def filter_entities_by_provenance(
     entities: list[dict],
     entity_type: str,
     allowed_sources: set[ProvenanceSource],
-) -> list[dict]:
+) -> tuple[list[dict], list[dict]]:
     """Filter entities to only those matching allowed provenance sources.
 
     Args:
@@ -108,7 +114,7 @@ def filter_entities_by_provenance(
         allowed_sources: Set of ProvenanceSource values to keep.
 
     Returns:
-        Filtered list of entities.
+        Tuple of (kept_entities, filtered_out_entities).
 
     # TODO: Performance optimization -- replace per-entity classify_provenance()
     # with batch implementation using graph.get_entities(entity_name, urns,
@@ -121,17 +127,17 @@ def filter_entities_by_provenance(
             f"No aspect mapping for entity type '{entity_type}', "
             f"passing through unfiltered"
         )
-        return entities
+        return entities, []
 
     kept = []
-    filtered_out = 0
+    filtered_out = []
     for i, entity in enumerate(entities):
         urn = entity.get("urn", "unknown")
         source = classify_provenance(graph, urn, aspect_name)
         if source in allowed_sources:
             kept.append(entity)
         else:
-            filtered_out += 1
+            filtered_out.append(entity)
             logger.debug(
                 f"Filtered out {entity_type} {urn} "
                 f"(source={source.value}, allowed={[s.value for s in allowed_sources]})"
@@ -145,7 +151,7 @@ def filter_entities_by_provenance(
 
     logger.info(
         f"Provenance filter for {entity_type}: "
-        f"{len(kept)} kept, {filtered_out} filtered out "
+        f"{len(kept)} kept, {len(filtered_out)} filtered out "
         f"(of {len(entities)} total)"
     )
-    return kept
+    return kept, filtered_out

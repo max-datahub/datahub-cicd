@@ -417,6 +417,10 @@ def sync_round_trip_dir(seeded_graph, export_dir):
     back to the exported value, proving that UPSERT actually writes.
 
     Validates the full export -> sync pipeline end-to-end.
+
+    Copies exported JSON to a separate directory so sync's observability
+    outputs (run-report.json, .run-state.json, etc.) don't overwrite
+    the export's observability files.
     """
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.metadata.schema_classes import TagPropertiesClass
@@ -439,6 +443,12 @@ def sync_round_trip_dir(seeded_graph, export_dir):
     mutated = seeded_graph.get_aspect(TAG_PII, TagPropertiesClass)
     assert mutated.description == "MUTATED -- should be overwritten by sync"
 
+    # Copy exported JSON files to a separate directory for sync
+    sync_dir = tempfile.mkdtemp(prefix="datahub-cicd-sync-")
+    for f in os.listdir(export_dir):
+        if f.endswith(".json"):
+            shutil.copy2(os.path.join(export_dir, f), sync_dir)
+
     env = {
         **os.environ,
         "DATAHUB_PROD_URL": GMS_URL,
@@ -447,7 +457,7 @@ def sync_round_trip_dir(seeded_graph, export_dir):
     result = subprocess.run(
         [
             "python", "-m", "src.cli.sync_cmd",
-            "--metadata-dir", export_dir,
+            "--metadata-dir", sync_dir,
         ],
         env=env,
         capture_output=True,
@@ -462,10 +472,11 @@ def sync_round_trip_dir(seeded_graph, export_dir):
         raise RuntimeError(f"Sync CLI failed: {result.stderr}")
     logger.info(f"Sync round-trip output:\n{result.stdout}")
     yield {
-        "export_dir": export_dir,
+        "export_dir": sync_dir,
         "stdout": result.stdout,
         "stderr": result.stderr,
     }
+    shutil.rmtree(sync_dir, ignore_errors=True)
 
 
 @pytest.fixture(scope="session")

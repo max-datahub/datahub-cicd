@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
+from src.interfaces import SKIP_DRY_RUN
 from src.deletion import apply_deletions, detect_soft_deleted
 
 
@@ -70,6 +71,7 @@ class TestApplyDeletions:
         result = apply_deletions(mock_graph, deletions, dry_run=True)
         assert len(result) == 1
         assert result[0].status == "skipped"
+        assert result[0].skip_reason == SKIP_DRY_RUN
         assert result[0].urn == "urn:li:tag:to-delete"
         mock_graph.soft_delete_entity.assert_not_called()
 
@@ -97,6 +99,8 @@ class TestApplyDeletions:
         assert len(result) == 1
         assert result[0].status == "failed"
         assert result[0].error == "API error"
+        assert result[0].error_category is not None
+        assert result[0].traceback is not None
 
     def test_partial_failure_continues(self, mock_graph):
         mock_graph.soft_delete_entity.side_effect = [

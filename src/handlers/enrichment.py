@@ -1,4 +1,5 @@
 import logging
+import traceback
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -16,6 +17,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from src.interfaces import EntityHandler, UrnMapper
+from src.retry import retry_transient
 from src.scope import ENV_SUPPORTED_ENTITY_TYPES, ScopeConfig
 
 logger = logging.getLogger(__name__)
@@ -43,11 +45,16 @@ def _export_common_enrichment(
     """Export tags, terms, domains, ownership for a single entity.
 
     Mutates entry dict in place. Returns True if any enrichment was found.
+    API calls are wrapped with retry for transient failures (Amendment 3).
     """
     has_enrichment = False
 
     # Tags
-    tags = graph.get_tags(urn)
+    @retry_transient(max_retries=3, base_delay=1.0)
+    def _get_tags():
+        return graph.get_tags(urn)
+
+    tags = _get_tags()
     if tags and tags.tags:
         filtered = [t for t in tags.tags if str(t.tag) in governance_urns]
         if filtered:
@@ -55,7 +62,11 @@ def _export_common_enrichment(
             has_enrichment = True
 
     # Glossary terms
-    terms = graph.get_glossary_terms(urn)
+    @retry_transient(max_retries=3, base_delay=1.0)
+    def _get_terms():
+        return graph.get_glossary_terms(urn)
+
+    terms = _get_terms()
     if terms and terms.terms:
         filtered = [t for t in terms.terms if str(t.urn) in governance_urns]
         if filtered:
@@ -63,7 +74,11 @@ def _export_common_enrichment(
             has_enrichment = True
 
     # Domains
-    domain = graph.get_domain(urn)
+    @retry_transient(max_retries=3, base_delay=1.0)
+    def _get_domain():
+        return graph.get_domain(urn)
+
+    domain = _get_domain()
     if domain and domain.domains:
         filtered = [d for d in domain.domains if d in governance_urns]
         if filtered:
@@ -71,7 +86,11 @@ def _export_common_enrichment(
             has_enrichment = True
 
     # Ownership (not filtered by governance URNs -- owner URNs are identity-based)
-    ownership = graph.get_ownership(urn)
+    @retry_transient(max_retries=3, base_delay=1.0)
+    def _get_ownership():
+        return graph.get_ownership(urn)
+
+    ownership = _get_ownership()
     if ownership and ownership.owners:
         entry["ownership"] = [
             {
@@ -153,6 +172,15 @@ def _build_common_mcps(
     return mcps
 
 
+def _progress_interval(total: int) -> int:
+    """Adaptive progress reporting interval."""
+    if total > 1000:
+        return 100
+    if total < 100:
+        return 25
+    return 50
+
+
 class DatasetEnrichmentHandler(EntityHandler):
 
     def __init__(
@@ -174,6 +202,8 @@ class DatasetEnrichmentHandler(EntityHandler):
     def export(self, graph: DataHubGraph) -> list[dict]:
         """Export tag/term/domain/ownership assignments on datasets + field-level metadata."""
         enriched = []
+        scanned = 0
+        errors = 0
         dataset_urns = list(graph.get_urns_by_filter(
             entity_types=["dataset"],
             platform=self.scope.platforms if self.scope else None,
@@ -181,60 +211,82 @@ class DatasetEnrichmentHandler(EntityHandler):
             extraFilters=self.scope.build_extra_filters() if self.scope else None,
         ))
         total = len(dataset_urns)
+        interval = _progress_interval(total)
         logger.info(f"Scanning {total} datasets for enrichment...")
         for i, urn in enumerate(dataset_urns):
-            entry: dict = {"dataset_urn": urn}
-            has_enrichment = _export_common_enrichment(
-                graph, urn, self.governance_urns, entry
-            )
-
-            # Field-level tags/terms (editableSchemaMetadata) -- dataset only
-            esm = graph.get_aspect(urn, EditableSchemaMetadataClass)
-            if esm and esm.editableSchemaFieldInfo:
-                field_entries = []
-                for field_info in esm.editableSchemaFieldInfo:
-                    field_entry: dict = {"fieldPath": field_info.fieldPath}
-                    field_has = False
-                    if field_info.globalTags and field_info.globalTags.tags:
-                        ft = [
-                            t
-                            for t in field_info.globalTags.tags
-                            if str(t.tag) in self.governance_urns
-                        ]
-                        if ft:
-                            field_entry["globalTags"] = [
-                                {"tag": str(t.tag)} for t in ft
-                            ]
-                            field_has = True
-                    if (
-                        field_info.glossaryTerms
-                        and field_info.glossaryTerms.terms
-                    ):
-                        ft = [
-                            t
-                            for t in field_info.glossaryTerms.terms
-                            if str(t.urn) in self.governance_urns
-                        ]
-                        if ft:
-                            field_entry["glossaryTerms"] = [
-                                {"urn": str(t.urn)} for t in ft
-                            ]
-                            field_has = True
-                    if field_has:
-                        field_entries.append(field_entry)
-                if field_entries:
-                    entry["editableSchemaMetadata"] = field_entries
-                    has_enrichment = True
-
-            if has_enrichment:
-                enriched.append(entry)
-
-            if (i + 1) % 50 == 0 or (i + 1) == total:
-                logger.info(
-                    f"  Enrichment scan progress: {i + 1}/{total} datasets "
-                    f"({len(enriched)} enriched)"
+            try:
+                entry: dict = {"dataset_urn": urn}
+                has_enrichment = _export_common_enrichment(
+                    graph, urn, self.governance_urns, entry
                 )
 
+                # Field-level tags/terms (editableSchemaMetadata) -- dataset only
+                @retry_transient(max_retries=3, base_delay=1.0)
+                def _get_esm():
+                    return graph.get_aspect(urn, EditableSchemaMetadataClass)
+
+                esm = _get_esm()
+                if esm and esm.editableSchemaFieldInfo:
+                    field_entries = []
+                    for field_info in esm.editableSchemaFieldInfo:
+                        field_entry: dict = {"fieldPath": field_info.fieldPath}
+                        field_has = False
+                        if field_info.globalTags and field_info.globalTags.tags:
+                            ft = [
+                                t
+                                for t in field_info.globalTags.tags
+                                if str(t.tag) in self.governance_urns
+                            ]
+                            if ft:
+                                field_entry["globalTags"] = [
+                                    {"tag": str(t.tag)} for t in ft
+                                ]
+                                field_has = True
+                        if (
+                            field_info.glossaryTerms
+                            and field_info.glossaryTerms.terms
+                        ):
+                            ft = [
+                                t
+                                for t in field_info.glossaryTerms.terms
+                                if str(t.urn) in self.governance_urns
+                            ]
+                            if ft:
+                                field_entry["glossaryTerms"] = [
+                                    {"urn": str(t.urn)} for t in ft
+                                ]
+                                field_has = True
+                        if field_has:
+                            field_entries.append(field_entry)
+                    if field_entries:
+                        entry["editableSchemaMetadata"] = field_entries
+                        has_enrichment = True
+
+                if has_enrichment:
+                    enriched.append(entry)
+                scanned += 1
+            except Exception as e:
+                errors += 1
+                logger.debug(
+                    f"Error exporting enrichment for dataset {urn}",
+                    exc_info=True,
+                )
+                logger.error(
+                    f"Error exporting enrichment for dataset {urn}: {e}"
+                )
+
+            if (i + 1) % interval == 0 or (i + 1) == total:
+                pct = (i + 1) / total * 100 if total else 0
+                logger.info(
+                    f"  Enrichment scan progress: {i + 1}/{total} datasets "
+                    f"({pct:.1f}%, {len(enriched)} enriched)"
+                )
+
+        if errors:
+            logger.warning(
+                f"Enrichment export completed with {errors} errors "
+                f"out of {total} datasets"
+            )
         logger.info(f"Exported enrichment for {len(enriched)} datasets")
         return enriched
 
@@ -306,6 +358,7 @@ class GenericEnrichmentHandler(EntityHandler):
 
     def export(self, graph: DataHubGraph) -> list[dict]:
         enriched = []
+        errors = 0
         # env only applies to entity types with an environment field —
         # passing it for charts/dashboards/etc. would exclude all results.
         env_filter = (
@@ -322,24 +375,43 @@ class GenericEnrichmentHandler(EntityHandler):
             )
         )
         total = len(urns)
+        interval = _progress_interval(total)
         logger.info(
             f"Scanning {total} {self._datahub_entity_type} entities "
             f"for enrichment..."
         )
         for i, urn in enumerate(urns):
-            entry: dict = {"entity_urn": urn}
-            has_enrichment = _export_common_enrichment(
-                graph, urn, self.governance_urns, entry
-            )
-            if has_enrichment:
-                enriched.append(entry)
-
-            if (i + 1) % 50 == 0 or (i + 1) == total:
-                logger.info(
-                    f"  {self._datahub_entity_type} scan progress: "
-                    f"{i + 1}/{total} ({len(enriched)} enriched)"
+            try:
+                entry: dict = {"entity_urn": urn}
+                has_enrichment = _export_common_enrichment(
+                    graph, urn, self.governance_urns, entry
+                )
+                if has_enrichment:
+                    enriched.append(entry)
+            except Exception as e:
+                errors += 1
+                logger.debug(
+                    f"Error exporting enrichment for "
+                    f"{self._datahub_entity_type} {urn}",
+                    exc_info=True,
+                )
+                logger.error(
+                    f"Error exporting enrichment for "
+                    f"{self._datahub_entity_type} {urn}: {e}"
                 )
 
+            if (i + 1) % interval == 0 or (i + 1) == total:
+                pct = (i + 1) / total * 100 if total else 0
+                logger.info(
+                    f"  {self._datahub_entity_type} scan progress: "
+                    f"{i + 1}/{total} ({pct:.1f}%, {len(enriched)} enriched)"
+                )
+
+        if errors:
+            logger.warning(
+                f"Enrichment export for {self._datahub_entity_type} "
+                f"completed with {errors} errors out of {total} entities"
+            )
         logger.info(
             f"Exported enrichment for {len(enriched)} "
             f"{self._datahub_entity_type} entities"

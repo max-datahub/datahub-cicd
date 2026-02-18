@@ -6,12 +6,25 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 
 
+# Skip reason constants for structured skip tracking (Amendment 4)
+SKIP_SYSTEM_ENTITY = "system_entity"
+SKIP_PROVENANCE_FILTER = "provenance_filter"
+SKIP_SCOPE_FILTER = "scope_filter"
+SKIP_NO_ENRICHMENT = "no_enrichment"
+SKIP_GOVERNANCE_URN_FILTER = "governance_urn_filter"
+SKIP_DRY_RUN = "dry_run"
+
+
 @dataclass
 class SyncResult:
     entity_type: str
     urn: str
     status: str  # "success" | "failed" | "skipped"
     error: Optional[str] = None
+    skip_reason: Optional[str] = None  # populated when status == "skipped"
+    traceback: Optional[str] = None  # full traceback stored for run report
+    error_category: Optional[str] = None  # from error_classification.classify_error()
+    error_suggestion: Optional[str] = None  # actionable suggestion for the error
 
 
 class UrnMapper(ABC):

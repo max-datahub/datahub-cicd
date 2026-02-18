@@ -19,16 +19,15 @@ from src.handlers.enrichment import (
     DatasetEnrichmentHandler,
     GenericEnrichmentHandler,
 )
+from src.logging_config import configure_logging
 from src.orchestrator import SyncOrchestrator
+from src.reporting import RunReport
+from src.run_context import RunContext, TrackedGraph
 from src.scope import ScopeConfig
 from src.urn_mapper import PassthroughMapper
 from src.utils import collect_governance_urns, read_json
 from src.write_strategy import DryRunStrategy, OverwriteStrategy
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +81,21 @@ def main() -> None:
         "--scope-config",
         help="Path to YAML scope configuration file (--live-enrichment only)",
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)",
+    )
     args = parser.parse_args()
+
+    # Set up run context and structured logging
+    ctx = RunContext(command="sync")
+    configure_logging(
+        output_dir=args.metadata_dir,
+        log_level=args.log_level,
+        run_id=ctx.run_id,
+    )
 
     # Load governance entities from JSON files
     metadata_dir = args.metadata_dir
@@ -141,7 +154,8 @@ def main() -> None:
 
     # Connect to prod and sync
     logger.info("Connecting to prod DataHub...")
-    prod_graph = get_prod_graph()
+    prod_graph_raw = get_prod_graph()
+    prod_graph = TrackedGraph(prod_graph_raw)
 
     # Apply deletions before syncing (so deleted entities don't get re-created)
     if args.apply_deletions:
@@ -165,12 +179,25 @@ def main() -> None:
         registry=registry,
         urn_mapper=PassthroughMapper(),
         write_strategy=write_strategy,
+        run_id=ctx.run_id,
+        output_dir=metadata_dir,
     )
     orchestrator.sync_all(prod_graph, exports)
 
     # Append deletion results for unified summary
     orchestrator.results.extend(deletion_results)
     orchestrator.print_summary()
+
+    # Generate run report
+    report = RunReport.from_results(
+        run_id=ctx.run_id,
+        command="sync",
+        results=orchestrator.results,
+        duration_seconds=ctx.duration_seconds,
+        timing=ctx.timing_summary(),
+        api_stats=prod_graph.get_stats(),
+    )
+    report.write(metadata_dir)
 
     if orchestrator.has_failures():
         sys.exit(1)

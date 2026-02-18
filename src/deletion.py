@@ -17,11 +17,14 @@ Usage:
 """
 
 import logging
+import traceback
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 
-from src.interfaces import SyncResult
+from src.error_classification import classify_error
+from src.interfaces import SKIP_DRY_RUN, SyncResult
+from src.retry import retry_transient
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +70,10 @@ def detect_soft_deleted(
             if urns:
                 logger.info(f"Found {len(urns)} soft-deleted {et} entities")
         except Exception as e:
+            logger.debug(
+                f"Failed to scan soft-deleted {et}",
+                exc_info=True,
+            )
             logger.warning(f"Failed to scan soft-deleted {et}: {e}")
 
     logger.info(f"Total soft-deleted entities detected: {len(deletions)}")
@@ -105,12 +112,18 @@ def apply_deletions(
                     entity_type=entity_type,
                     urn=urn,
                     status="skipped",
+                    skip_reason=SKIP_DRY_RUN,
                 )
             )
             continue
 
         try:
-            graph.soft_delete_entity(urn)
+
+            @retry_transient(max_retries=3, base_delay=1.0)
+            def _delete():
+                graph.soft_delete_entity(urn)
+
+            _delete()
             logger.info(f"Soft-deleted: {entity_type} {urn}")
             results.append(
                 SyncResult(
@@ -120,6 +133,11 @@ def apply_deletions(
                 )
             )
         except Exception as e:
+            logger.debug(
+                f"Failed to soft-delete {entity_type} {urn}",
+                exc_info=True,
+            )
+            category, suggestion = classify_error(e)
             logger.error(f"Failed to soft-delete {entity_type} {urn}: {e}")
             results.append(
                 SyncResult(
@@ -127,6 +145,9 @@ def apply_deletions(
                     urn=urn,
                     status="failed",
                     error=str(e),
+                    traceback=traceback.format_exc(),
+                    error_category=category,
+                    error_suggestion=suggestion,
                 )
             )
 

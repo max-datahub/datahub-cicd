@@ -1,17 +1,26 @@
 import logging
 import os
 import time
+import traceback
 
 from datahub.ingestion.graph.client import DataHubGraph
 
+from src.error_classification import classify_error
 from src.interfaces import SyncResult, UrnMapper, WriteStrategy
 from src.registry import HandlerRegistry
+from src.reporting import write_run_state
 from src.utils import write_json
 
 logger = logging.getLogger(__name__)
 
-# Progress is logged every N entities during sync.
-_PROGRESS_INTERVAL = 50
+
+def _progress_interval(total: int) -> int:
+    """Adaptive progress reporting interval based on entity count (Amendment 9)."""
+    if total > 1000:
+        return 100
+    if total < 100:
+        return 25
+    return 50
 
 
 class SyncOrchestrator:
@@ -31,16 +40,51 @@ class SyncOrchestrator:
         registry: HandlerRegistry,
         urn_mapper: UrnMapper,
         write_strategy: WriteStrategy,
+        run_id: str | None = None,
+        output_dir: str | None = None,
     ) -> None:
         self.registry = registry
         self.urn_mapper = urn_mapper
         self.write_strategy = write_strategy
         self.results: list[SyncResult] = []
+        self._run_id = run_id or ""
+        self._output_dir = output_dir
+        self._started_at = ""
+        self._completed_phases: list[dict] = []
+
+    def _write_incremental_state(
+        self, command: str, status: str = "in_progress"
+    ) -> None:
+        """Write incremental run state for crash resilience (Amendment 5)."""
+        if not self._output_dir:
+            return
+        errors = [
+            {
+                "urn": r.urn,
+                "entity_type": r.entity_type,
+                "category": r.error_category or "unknown",
+                "message": r.error or "",
+            }
+            for r in self.results
+            if r.status == "failed"
+        ]
+        write_run_state(
+            output_dir=self._output_dir,
+            run_id=self._run_id,
+            command=command,
+            started_at=self._started_at,
+            status=status,
+            completed_phases=self._completed_phases,
+            results=self.results,
+            errors=errors,
+        )
 
     def export_all(
         self, graph: DataHubGraph, output_dir: str
     ) -> dict[str, list[dict]]:
         """Export all entity types in dependency order. Write JSON files."""
+        self._output_dir = output_dir
+        self._started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         exports: dict[str, list[dict]] = {}
         for handler in self.registry.get_sync_order():
             logger.info(f"Exporting {handler.entity_type}...")
@@ -54,6 +98,15 @@ class SyncOrchestrator:
                 f"Exported {len(entities)} {handler.entity_type} "
                 f"entities in {elapsed:.1f}s"
             )
+            self._completed_phases.append(
+                {
+                    "entity_type": handler.entity_type,
+                    "phase": "export",
+                    "duration_seconds": round(elapsed, 3),
+                    "entity_count": len(entities),
+                }
+            )
+            self._write_incremental_state("export")
         return exports
 
     def export_single(
@@ -70,6 +123,9 @@ class SyncOrchestrator:
         self, graph: DataHubGraph, exports: dict[str, list[dict]]
     ) -> list[SyncResult]:
         """Sync all entity types to target in dependency order."""
+        if not self._started_at:
+            self._started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
         for handler in self.registry.get_sync_order():
             entities = exports.get(handler.entity_type, [])
             if not entities:
@@ -88,10 +144,13 @@ class SyncOrchestrator:
                 )
                 continue
 
+            total = len(entities)
+            interval = _progress_interval(total)
             logger.info(
-                f"Syncing {len(entities)} {handler.entity_type} entities..."
+                f"Syncing {total} {handler.entity_type} entities..."
             )
             t0 = time.monotonic()
+            last_progress_time = t0
             for i, entity in enumerate(entities):
                 urn = entity.get("urn") or entity.get("dataset_urn", "unknown")
                 try:
@@ -99,44 +158,77 @@ class SyncOrchestrator:
                     phase_results = self.write_strategy.emit(graph, mcps)
                     self.results.extend(phase_results)
                 except Exception as e:
+                    logger.debug(
+                        f"Failed to build MCPs for {handler.entity_type} "
+                        f"{urn}",
+                        exc_info=True,
+                    )
+                    category, suggestion = classify_error(e)
                     logger.error(
                         f"Failed to build MCPs for {handler.entity_type} "
                         f"{urn}: {e}"
                     )
                     self.results.append(
                         SyncResult(
-                            handler.entity_type, urn, "failed", str(e)
+                            entity_type=handler.entity_type,
+                            urn=urn,
+                            status="failed",
+                            error=str(e),
+                            traceback=traceback.format_exc(),
+                            error_category=category,
+                            error_suggestion=suggestion,
                         )
                     )
 
-                if (i + 1) % _PROGRESS_INTERVAL == 0:
-                    logger.info(
-                        f"  Progress: {i + 1}/{len(entities)} "
-                        f"{handler.entity_type} entities"
+                now = time.monotonic()
+                if (i + 1) % interval == 0 or (
+                    total > 1000 and now - last_progress_time >= 30
+                ):
+                    elapsed_so_far = now - t0
+                    pct = (i + 1) / total * 100
+                    eta = (
+                        elapsed_so_far / (i + 1) * (total - i - 1)
+                        if i > 0
+                        else 0
                     )
+                    logger.info(
+                        f"  Progress: {i + 1}/{total} "
+                        f"{handler.entity_type} entities "
+                        f"({pct:.1f}%, ~{eta:.0f}s remaining)"
+                    )
+                    last_progress_time = now
 
             elapsed = time.monotonic() - t0
             logger.info(
-                f"Synced {len(entities)} {handler.entity_type} "
+                f"Synced {total} {handler.entity_type} "
                 f"entities in {elapsed:.1f}s"
             )
+            self._completed_phases.append(
+                {
+                    "entity_type": handler.entity_type,
+                    "phase": "sync",
+                    "duration_seconds": round(elapsed, 3),
+                    "entity_count": total,
+                }
+            )
+            self._write_incremental_state("sync")
 
         return self.results
 
     def print_summary(self) -> None:
-        """Print human-readable summary of sync results."""
+        """Log human-readable summary of sync results."""
         succeeded = sum(1 for r in self.results if r.status == "success")
         failed = sum(1 for r in self.results if r.status == "failed")
         skipped = sum(1 for r in self.results if r.status == "skipped")
-        print(
-            f"\nSync complete: {succeeded} succeeded, "
+        logger.info(
+            f"Sync complete: {succeeded} succeeded, "
             f"{failed} failed, {skipped} skipped"
         )
         if failed:
-            print("\nFailed entities:")
+            logger.info("Failed entities:")
             for r in self.results:
                 if r.status == "failed":
-                    print(f"  [{r.entity_type}] {r.urn}: {r.error}")
+                    logger.info(f"  [{r.entity_type}] {r.urn}: {r.error}")
 
     def has_failures(self) -> bool:
         return any(r.status == "failed" for r in self.results)

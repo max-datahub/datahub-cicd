@@ -813,10 +813,10 @@ class TestSyncRoundTrip:
 
     def test_sync_summary_reports_no_failures(self, sync_round_trip_dir):
         """Sync summary should report 0 failures."""
-        stdout = sync_round_trip_dir["stdout"]
-        # print_summary outputs: "Sync complete: N succeeded, M failed, K skipped"
-        assert "0 failed" in stdout, (
-            f"Expected '0 failed' in sync output, got:\n{stdout}"
+        stderr = sync_round_trip_dir["stderr"]
+        # print_summary logs via logger (stderr): "Sync complete: N succeeded, M failed, K skipped"
+        assert "0 failed" in stderr, (
+            f"Expected '0 failed' in sync stderr, got:\n{stderr}"
         )
 
     def test_mutation_overwritten_by_sync(self, sync_round_trip_graph):

@@ -48,6 +48,9 @@ python -m src.cli.export_cmd --output-dir metadata/ --domain urn:li:domain:marke
 python -m src.cli.export_cmd --output-dir metadata/ --platform snowflake --env PROD
 python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/example-scope.yaml
 
+# Export with DEBUG logging (shows full stack traces)
+python -m src.cli.export_cmd --output-dir metadata/ --log-level DEBUG
+
 # Sync to prod DataHub (dry-run)
 python -m src.cli.sync_cmd --metadata-dir metadata/ --dry-run
 
@@ -70,7 +73,8 @@ python -m src.cli.sync_cmd --metadata-dir metadata/ --apply-deletions
 ### Key Abstractions (`src/interfaces.py`)
 
 - **EntityHandler**: Abstract base for each entity type. Defines `export()`, `build_mcps()`, `dependencies`, `is_system_entity()`, `validate()`.
-- **WriteStrategy**: Controls how MCPs are written. `OverwriteStrategy` does full UPSERT; `DryRunStrategy` logs without emitting.
+- **SyncResult**: Per-entity result with `status` (success/failed/skipped), `error`, `skip_reason`, `traceback`, `error_category`, and `error_suggestion` fields.
+- **WriteStrategy**: Controls how MCPs are written. `OverwriteStrategy` does full UPSERT with retry; `DryRunStrategy` logs without emitting (sets `skip_reason=SKIP_DRY_RUN`).
 - **UrnMapper**: Maps source URNs to target URNs. Currently `PassthroughMapper` (identity); designed for future cross-environment mapping.
 
 ### Handler Registry & Dependency Resolution (`src/registry.py`)
@@ -101,7 +105,7 @@ Configuration via CLI flags (`--domain`, `--platform`, `--env`), YAML file (`--s
 
 ### Orchestrator (`src/orchestrator.py`)
 
-`SyncOrchestrator` coordinates export and sync across all handlers. Tracks per-entity `SyncResult` (success/failed/skipped) and reports failures. Progress logged every 50 entities.
+`SyncOrchestrator` coordinates export and sync across all handlers. Tracks per-entity `SyncResult` (success/failed/skipped) and reports failures. Uses adaptive progress intervals (every 25/50/100 entities depending on total count, plus time-based every 30s for large runs). Writes incremental `.run-state.json` after each handler phase for crash resilience.
 
 ### Deletion Propagation (`src/deletion.py`)
 
@@ -112,8 +116,26 @@ Configuration via CLI flags (`--domain`, `--platform`, `--env`), YAML file (`--s
 
 - `ProvenanceSource` enum: `UI`, `INGESTION`, `CICD`, `UNKNOWN`.
 - `classify_provenance(graph, urn, aspect_name)`: Inspects `systemMetadata` on an entity's primary aspect to classify its creation source.
-- `filter_entities_by_provenance(graph, entities, entity_type, allowed_sources)`: Filters entities to only those matching allowed provenance sources.
+- `filter_entities_by_provenance(graph, entities, entity_type, allowed_sources)`: Returns `(kept, filtered_out)` tuple. Filters entities to only those matching allowed provenance sources while tracking filtered-out entities for skip reporting.
 - CI/CD writes are tagged with `appSource: cicd-pipeline` via `CICD_SYSTEM_METADATA` in `OverwriteStrategy`.
+
+### Observability (`src/logging_config.py`, `src/run_context.py`, `src/error_classification.py`, `src/reporting.py`, `src/retry.py`)
+
+Each CLI run produces structured observability outputs in the output directory:
+
+- **JSONL log** (`run-{run_id}.jsonl`): Machine-parseable structured log, one JSON object per line with timestamp, level, logger, message. Captures all log levels (DEBUG to ERROR) regardless of console log level.
+- **JSON report** (`run-report.json`): Run summary with entity counts, API call stats, errors with classification/suggestions, skip reasons, and timing.
+- **Markdown report** (`run-report.md`): Human-readable report with entity summary table, timing, skip table, and error details.
+- **Incremental state** (`.run-state.json`): Updated after each handler phase. If the pipeline crashes, this file is the best available record of what completed.
+
+Key modules:
+
+- **`TrackedGraph`** (`src/run_context.py`): Wraps `DataHubGraph` with `__getattr__` delegation. Tracks call counts and timing for API methods (`get_tags`, `emit_mcp`, etc.) transparently. Untracked methods pass through with zero overhead.
+- **`RunContext`** (`src/run_context.py`): Tracks run ID, command, phase timing, and duration.
+- **Error classification** (`src/error_classification.py`): `classify_error(exc)` returns `(category, suggestion)` tuple. Handles DataHub SDK exceptions (HTTP status codes in attrs/messages), standard Python exceptions, and unknown errors.
+- **Retry** (`src/retry.py`): `@retry_transient` decorator with exponential backoff. Retries `ConnectionError`, `TimeoutError`, HTTP 429/502/503/504. Does NOT retry auth/validation/client errors. Applied to `OverwriteStrategy.emit()`, enrichment API calls, and `apply_deletions()`.
+- **Skip tracking**: `SyncResult.skip_reason` field with constants (`SKIP_DRY_RUN`, `SKIP_SYSTEM_ENTITY`, `SKIP_PROVENANCE_FILTER`, `SKIP_NO_ENRICHMENT`, etc.) in `src/interfaces.py`.
+- **Stack traces**: Full tracebacks at `logger.debug(exc_info=True)` (visible with `--log-level DEBUG`), clean one-line messages at `logger.error()`. Tracebacks also stored in `SyncResult.traceback` for the run report.
 
 ### Utilities (`src/utils.py`)
 
@@ -139,4 +161,6 @@ Configuration via CLI flags (`--domain`, `--platform`, `--env`), YAML file (`--s
 
 - Unit tests use a `mock_graph` fixture (from `tests/conftest.py`) that stubs `DataHubGraph` methods.
 - Handler tests cover: export, build_mcps, system entity filtering, hierarchical ordering.
+- Observability unit tests cover: retry logic, error classification, TrackedGraph, run reports (JSON/Markdown), JSONL logging, incremental state.
 - Integration tests (`@pytest.mark.integration`) spin up a Docker DataHub instance with a 10000-port offset and seed test data via `tests/integration/seed.py`.
+- Integration observability tests (`tests/integration/test_observability.py`) validate that JSONL logs, JSON/Markdown reports, `.run-state.json`, API stats, and skip tracking are produced correctly during real export/sync runs.

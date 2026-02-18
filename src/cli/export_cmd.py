@@ -11,6 +11,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 from src.client import get_dev_graph
 from src.deletion import detect_soft_deleted
@@ -20,17 +21,16 @@ from src.handlers.enrichment import (
     DatasetEnrichmentHandler,
     GenericEnrichmentHandler,
 )
+from src.logging_config import configure_logging
 from src.orchestrator import SyncOrchestrator
 from src.provenance import ProvenanceSource, filter_entities_by_provenance
+from src.reporting import RunReport
+from src.run_context import RunContext, TrackedGraph
 from src.scope import ScopeConfig
 from src.urn_mapper import PassthroughMapper
 from src.utils import collect_governance_urns, write_json
 from src.write_strategy import DryRunStrategy
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
@@ -83,16 +83,33 @@ def main() -> None:
         "--scope-config",
         help="Path to YAML scope configuration file",
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="Logging level (default: INFO)",
+    )
     args = parser.parse_args()
 
+    # Set up run context and structured logging
+    ctx = RunContext(command="export")
+    configure_logging(
+        output_dir=args.output_dir,
+        log_level=args.log_level,
+        run_id=ctx.run_id,
+    )
+
     logger.info("Connecting to dev DataHub...")
-    dev_graph = get_dev_graph()
+    dev_graph_raw = get_dev_graph()
+    dev_graph = TrackedGraph(dev_graph_raw)
 
     registry = create_default_registry()
     orchestrator = SyncOrchestrator(
         registry=registry,
         urn_mapper=PassthroughMapper(),
         write_strategy=DryRunStrategy(),
+        run_id=ctx.run_id,
+        output_dir=args.output_dir,
     )
 
     logger.info(f"Exporting governance entities to {args.output_dir}/")
@@ -117,9 +134,10 @@ def main() -> None:
         for entity_type in list(exports.keys()):
             if entity_type in governance_types:
                 original_count = len(exports[entity_type])
-                exports[entity_type] = filter_entities_by_provenance(
+                kept, _filtered_out = filter_entities_by_provenance(
                     dev_graph, exports[entity_type], entity_type, allowed
                 )
+                exports[entity_type] = kept
                 # Re-write filtered JSON
                 output_path = os.path.join(
                     args.output_dir, f"{entity_type}.json"
@@ -161,9 +179,22 @@ def main() -> None:
             orchestrator.export_single(handler, entities, args.output_dir)
 
     total = sum(len(entities) for entities in exports.values())
-    print(f"\nExport complete: {total} entities across {len(exports)} types")
+    logger.info(
+        f"Export complete: {total} entities across {len(exports)} types"
+    )
     for entity_type, entities in exports.items():
-        print(f"  {entity_type}: {len(entities)} entities")
+        logger.info(f"  {entity_type}: {len(entities)} entities")
+
+    # Generate run report
+    report = RunReport.from_results(
+        run_id=ctx.run_id,
+        command="export",
+        results=orchestrator.results,
+        duration_seconds=ctx.duration_seconds,
+        timing=ctx.timing_summary(),
+        api_stats=dev_graph.get_stats(),
+    )
+    report.write(args.output_dir)
 
 
 if __name__ == "__main__":

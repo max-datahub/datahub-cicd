@@ -104,11 +104,12 @@ class TestFilterEntitiesByProvenance:
             _make_mcpw("tagProperties", sys_meta)
         ]
         entities = [{"urn": "urn:li:tag:ui-tag", "name": "UI Tag"}]
-        result = filter_entities_by_provenance(
+        kept, filtered_out = filter_entities_by_provenance(
             mock_graph, entities, "tag", {ProvenanceSource.UI}
         )
-        assert len(result) == 1
-        assert result[0]["urn"] == "urn:li:tag:ui-tag"
+        assert len(kept) == 1
+        assert kept[0]["urn"] == "urn:li:tag:ui-tag"
+        assert len(filtered_out) == 0
 
     def test_filters_non_matching_entities(self, mock_graph):
         sys_meta = SystemMetadataClass(
@@ -119,20 +120,23 @@ class TestFilterEntitiesByProvenance:
             _make_mcpw("tagProperties", sys_meta)
         ]
         entities = [{"urn": "urn:li:tag:ingested-tag", "name": "Ingested"}]
-        result = filter_entities_by_provenance(
+        kept, filtered_out = filter_entities_by_provenance(
             mock_graph, entities, "tag", {ProvenanceSource.UI}
         )
-        assert len(result) == 0
+        assert len(kept) == 0
+        assert len(filtered_out) == 1
+        assert filtered_out[0]["urn"] == "urn:li:tag:ingested-tag"
 
     def test_unknown_entity_type_returns_all(self, mock_graph):
         entities = [
             {"urn": "urn:li:something:a"},
             {"urn": "urn:li:something:b"},
         ]
-        result = filter_entities_by_provenance(
+        kept, filtered_out = filter_entities_by_provenance(
             mock_graph, entities, "unknownType", {ProvenanceSource.UI}
         )
-        assert len(result) == 2
+        assert len(kept) == 2
+        assert len(filtered_out) == 0
         # Should not call get_entity_as_mcps for unmapped types
         mock_graph.get_entity_as_mcps.assert_not_called()
 
@@ -156,8 +160,10 @@ class TestFilterEntitiesByProvenance:
             {"urn": "urn:li:tag:ui-tag"},
             {"urn": "urn:li:tag:ingested-tag"},
         ]
-        result = filter_entities_by_provenance(
+        kept, filtered_out = filter_entities_by_provenance(
             mock_graph, entities, "tag", {ProvenanceSource.UI}
         )
-        assert len(result) == 1
-        assert result[0]["urn"] == "urn:li:tag:ui-tag"
+        assert len(kept) == 1
+        assert kept[0]["urn"] == "urn:li:tag:ui-tag"
+        assert len(filtered_out) == 1
+        assert filtered_out[0]["urn"] == "urn:li:tag:ingested-tag"
