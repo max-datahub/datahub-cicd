@@ -18,6 +18,7 @@ from src.handlers.enrichment import (
     DatasetEnrichmentHandler,
     GenericEnrichmentHandler,
 )
+from src.scope import ScopeConfig
 from src.urn_mapper import PassthroughMapper
 
 
@@ -340,3 +341,150 @@ class TestGenericEnrichmentHandler:
 
         mcps = chart_handler.build_mcps(entity, mapper)
         assert mcps[0].aspect.owners[0].owner == "urn:li:corpuser:bob"
+
+
+class TestDatasetEnrichmentScoped:
+    @pytest.fixture
+    def governance_urns(self):
+        return {"urn:li:tag:PII"}
+
+    def _stub_graph_no_enrichment(self, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = []
+        mock_graph.get_tags.return_value = None
+        mock_graph.get_glossary_terms.return_value = None
+        mock_graph.get_domain.return_value = None
+        mock_graph.get_ownership.return_value = None
+        mock_graph.get_aspect.return_value = None
+
+    def test_export_with_domain_scope(self, governance_urns, mock_graph):
+        scope = ScopeConfig(domains=["urn:li:domain:marketing"])
+        handler = DatasetEnrichmentHandler(governance_urns=governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        extra_filters = call_kwargs.kwargs["extraFilters"]
+        assert extra_filters is not None
+        assert len(extra_filters) == 1
+        assert extra_filters[0]["field"] == "domains"
+        assert extra_filters[0]["values"] == ["urn:li:domain:marketing"]
+
+    def test_export_with_platform_scope(self, governance_urns, mock_graph):
+        scope = ScopeConfig(platforms=["snowflake"])
+        handler = DatasetEnrichmentHandler(governance_urns=governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["platform"] == ["snowflake"]
+
+    def test_export_with_env_scope(self, governance_urns, mock_graph):
+        scope = ScopeConfig(env="PROD")
+        handler = DatasetEnrichmentHandler(governance_urns=governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["env"] == "PROD"
+
+    def test_export_with_combined_scope(self, governance_urns, mock_graph):
+        scope = ScopeConfig(
+            domains=["urn:li:domain:marketing"],
+            platforms=["snowflake", "bigquery"],
+            env="PROD",
+        )
+        handler = DatasetEnrichmentHandler(governance_urns=governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["platform"] == ["snowflake", "bigquery"]
+        assert call_kwargs.kwargs["env"] == "PROD"
+        assert call_kwargs.kwargs["extraFilters"] is not None
+
+    def test_export_no_scope_unchanged(self, governance_urns, mock_graph):
+        handler = DatasetEnrichmentHandler(governance_urns=governance_urns)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["platform"] is None
+        assert call_kwargs.kwargs["env"] is None
+        assert call_kwargs.kwargs["extraFilters"] is None
+
+
+class TestGenericEnrichmentScoped:
+    @pytest.fixture
+    def governance_urns(self):
+        return {"urn:li:tag:PII"}
+
+    def _stub_graph_no_enrichment(self, mock_graph):
+        mock_graph.get_urns_by_filter.return_value = []
+        mock_graph.get_tags.return_value = None
+        mock_graph.get_glossary_terms.return_value = None
+        mock_graph.get_domain.return_value = None
+        mock_graph.get_ownership.return_value = None
+        mock_graph.get_aspect.return_value = None
+
+    def test_export_chart_env_not_passed(self, governance_urns, mock_graph):
+        """env should NOT be passed for charts (no environment field)."""
+        scope = ScopeConfig(env="PROD", platforms=["looker"])
+        handler = GenericEnrichmentHandler("chart", governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["env"] is None
+        assert call_kwargs.kwargs["platform"] == ["looker"]
+
+    def test_export_dashboard_env_not_passed(self, governance_urns, mock_graph):
+        """env should NOT be passed for dashboards."""
+        scope = ScopeConfig(env="PROD")
+        handler = GenericEnrichmentHandler("dashboard", governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["env"] is None
+
+    def test_export_container_env_passed(self, governance_urns, mock_graph):
+        """env SHOULD be passed for containers (they have environment)."""
+        scope = ScopeConfig(env="PROD")
+        handler = GenericEnrichmentHandler("container", governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["env"] == "PROD"
+
+    def test_export_with_domain_scope(self, governance_urns, mock_graph):
+        scope = ScopeConfig(domains=["urn:li:domain:finance"])
+        handler = GenericEnrichmentHandler("chart", governance_urns, scope=scope)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        extra_filters = call_kwargs.kwargs["extraFilters"]
+        assert extra_filters is not None
+        assert extra_filters[0]["field"] == "domains"
+        assert extra_filters[0]["values"] == ["urn:li:domain:finance"]
+
+    def test_export_no_scope_unchanged(self, governance_urns, mock_graph):
+        handler = GenericEnrichmentHandler("chart", governance_urns)
+        self._stub_graph_no_enrichment(mock_graph)
+
+        handler.export(mock_graph)
+
+        call_kwargs = mock_graph.get_urns_by_filter.call_args
+        assert call_kwargs.kwargs["platform"] is None
+        assert call_kwargs.kwargs["env"] is None
+        assert call_kwargs.kwargs["extraFilters"] is None

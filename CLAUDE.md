@@ -43,6 +43,11 @@ python -m src.cli.export_cmd --output-dir metadata/ --include-deletions
 # Export with provenance filtering (UI-authored only)
 python -m src.cli.export_cmd --output-dir metadata/ --filter-by-source ui
 
+# Export with enrichment scoping (domain, platform, environment)
+python -m src.cli.export_cmd --output-dir metadata/ --domain urn:li:domain:marketing
+python -m src.cli.export_cmd --output-dir metadata/ --platform snowflake --env PROD
+python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/example-scope.yaml
+
 # Sync to prod DataHub (dry-run)
 python -m src.cli.sync_cmd --metadata-dir metadata/ --dry-run
 
@@ -84,13 +89,23 @@ python -m src.cli.sync_cmd --metadata-dir metadata/ --apply-deletions
 | `DatasetEnrichmentHandler` | `enrichment` | none | Tags, terms, domains, ownership, field-level schema |
 | `GenericEnrichmentHandler` | varies | none | Reusable for chart/dashboard/container/dataFlow/dataProduct enrichment |
 
+### Enrichment Scoping (`src/scope.py`)
+
+`ScopeConfig` restricts which entities are scanned during enrichment export. Governance entities (tags, terms, domains, data products) are always global. Scope filters apply only to enrichment targets (datasets, charts, dashboards, etc.).
+
+- **domains**: Filter by domain URN via `extraFilters` (Elasticsearch query).
+- **platforms**: Filter by platform name via `get_urns_by_filter(platform=...)`.
+- **env**: Filter by environment via `get_urns_by_filter(env=...)`. Only applied to entity types that support it (datasets, containers). Omitted for charts, dashboards, dataFlows, and dataProducts to avoid excluding all results.
+
+Configuration via CLI flags (`--domain`, `--platform`, `--env`), YAML file (`--scope-config`), or both (CLI overrides YAML).
+
 ### Orchestrator (`src/orchestrator.py`)
 
 `SyncOrchestrator` coordinates export and sync across all handlers. Tracks per-entity `SyncResult` (success/failed/skipped) and reports failures. Progress logged every 50 entities.
 
 ### Deletion Propagation (`src/deletion.py`)
 
-- `detect_soft_deleted(graph, entity_types)`: Queries DataHub for soft-deleted governance entities via `RemovedStatusFilter.ONLY_SOFT_DELETED`. Returns list of `{"urn": ..., "entity_type": ...}` dicts.
+- `detect_soft_deleted(graph, entity_types)`: Queries DataHub for soft-deleted governance entities via `RemovedStatusFilter.ONLY_SOFT_DELETED`. Returns list of `{"urn": ..., "entity_type": ...}` dicts. Only scans entity types with a registered `status` aspect (tags, glossary nodes/terms, data products). **Domains are excluded** — they lack the `status` aspect and return 422 on soft-delete.
 - `apply_deletions(graph, deletions, dry_run)`: Calls `graph.soft_delete_entity(urn)` for each deletion. Per-entity error tracking. Dry-run mode returns "skipped" without deleting.
 
 ### Provenance Filtering (`src/provenance.py`)

@@ -4,6 +4,13 @@ DataHub soft-deletes set `status.removed=true`. Tombstones remain queryable
 for `retention_days` (default 10) before GC hard-deletes them. The SDK
 provides `RemovedStatusFilter.ONLY_SOFT_DELETED` to query tombstones.
 
+IMPORTANT: Not all entity types support the ``status`` aspect required for
+soft-deletion. Only entity types with ``status`` registered in the DataHub
+entity registry can be soft-deleted via ``soft_delete_entity()``. Notably,
+``domain`` does NOT have a ``status`` aspect in DataHub (as of v1.x head)
+and will return a 422 error. Domain deletion requires the GraphQL
+``deleteDomain`` mutation instead.
+
 Usage:
     deletions = detect_soft_deleted(graph)
     results = apply_deletions(prod_graph, deletions, dry_run=True)
@@ -18,11 +25,13 @@ from src.interfaces import SyncResult
 
 logger = logging.getLogger(__name__)
 
+# Entity types that support the `status` aspect for soft-deletion.
+# `domain` is intentionally excluded — it does not have a `status` aspect
+# in the DataHub entity registry. Soft-deleting a domain returns 422.
 DEFAULT_ENTITY_TYPES = [
     "tag",
     "glossaryNode",
     "glossaryTerm",
-    "domain",
     "dataProduct",
 ]
 

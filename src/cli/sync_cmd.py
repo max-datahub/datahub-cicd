@@ -20,6 +20,7 @@ from src.handlers.enrichment import (
     GenericEnrichmentHandler,
 )
 from src.orchestrator import SyncOrchestrator
+from src.scope import ScopeConfig
 from src.urn_mapper import PassthroughMapper
 from src.utils import collect_governance_urns, read_json
 from src.write_strategy import DryRunStrategy, OverwriteStrategy
@@ -61,6 +62,26 @@ def main() -> None:
             "Must be paired with --include-deletions during export."
         ),
     )
+    parser.add_argument(
+        "--domain",
+        action="append",
+        dest="domains",
+        help="Filter enrichment to entities in this domain (repeatable, --live-enrichment only)",
+    )
+    parser.add_argument(
+        "--platform",
+        action="append",
+        dest="platforms",
+        help="Filter enrichment to entities on this platform (repeatable, --live-enrichment only)",
+    )
+    parser.add_argument(
+        "--env",
+        help="Filter enrichment to entities in this environment (--live-enrichment only)",
+    )
+    parser.add_argument(
+        "--scope-config",
+        help="Path to YAML scope configuration file (--live-enrichment only)",
+    )
     args = parser.parse_args()
 
     # Load governance entities from JSON files
@@ -81,12 +102,17 @@ def main() -> None:
 
     # Load or export enrichment
     dev_graph = None
+    scope = ScopeConfig.from_cli_args(args) if args.live_enrichment else ScopeConfig()
     if args.live_enrichment:
         logger.info("Connecting to dev DataHub for live enrichment export...")
         dev_graph = get_dev_graph()
+        if scope.is_scoped:
+            logger.info(f"Enrichment scope: {scope}")
 
     # Dataset enrichment
-    ds_handler = DatasetEnrichmentHandler(governance_urns=governance_urns)
+    ds_handler = DatasetEnrichmentHandler(
+        governance_urns=governance_urns, scope=scope
+    )
     if args.live_enrichment:
         exports[ds_handler.entity_type] = ds_handler.export(dev_graph)
     else:
@@ -98,7 +124,7 @@ def main() -> None:
     for et in ENRICHABLE_ENTITY_TYPES:
         if et == "dataset":
             continue
-        handler = GenericEnrichmentHandler(et, governance_urns)
+        handler = GenericEnrichmentHandler(et, governance_urns, scope=scope)
         if args.live_enrichment:
             exports[handler.entity_type] = handler.export(dev_graph)
         else:

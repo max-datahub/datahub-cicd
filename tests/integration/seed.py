@@ -2,6 +2,14 @@
 
 Creates a deterministic set of governance entities, data assets, and enrichment
 assignments that cover every supported entity type and aspect.
+
+Includes edge-case entities for testing:
+- Non-governance tag references that should be stripped from enrichment
+- Tag assigned to a dataset then soft-deleted (enrichment should exclude)
+- Glossary term with null name (pipeline derives name from URN)
+- Glossary term with URN in termSource (pipeline passes through, maps if URN)
+- Dataset with empty tag/ownership aspects (should not produce enrichment)
+- Dataset on a second platform (snowflake, for multi-platform scope testing)
 """
 
 import logging
@@ -42,9 +50,16 @@ TAG_PII = "urn:li:tag:integration-pii"
 TAG_FINANCIAL = "urn:li:tag:integration-financial"
 TAG_SYSTEM = "urn:li:tag:__default_integration_test"
 
-# Soft-deleted entities (created then deleted, for deletion propagation tests)
+# Tag that will be assigned to a dataset then soft-deleted.
+# Tests that enrichment filtering strips references to deleted governance.
+TAG_ASSIGNED_THEN_DELETED = "urn:li:tag:integration-assigned-then-deleted"
+
+# Soft-deleted entities (created then deleted, for deletion propagation tests).
+# NOTE: only entity types with a registered `status` aspect can be soft-deleted
+# via soft_delete_entity(). In current DataHub head, `domain` does NOT support
+# the status aspect — soft_delete_entity() returns 422. Tags work fine.
 TAG_DELETED = "urn:li:tag:integration-deleted-tag"
-DOMAIN_DELETED = "urn:li:domain:integration-deleted-domain"
+TERM_DELETED = "urn:li:glossaryTerm:integration-deleted-term"
 
 # Glossary nodes (hierarchy: root -> child)
 NODE_ROOT = "urn:li:glossaryNode:integration-root-node"
@@ -53,6 +68,15 @@ NODE_CHILD = "urn:li:glossaryNode:integration-child-node"
 # Glossary terms (under nodes)
 TERM_A = "urn:li:glossaryTerm:integration-term-a"
 TERM_B = "urn:li:glossaryTerm:integration-term-b"
+
+# Glossary term with null name -- DataHub sometimes stores null for
+# GlossaryTermInfo.name. Pipeline should derive name from URN.
+TERM_NULL_NAME = "urn:li:glossaryTerm:integration-term-null-name"
+
+# Glossary term with URN stored in termSource field instead of INTERNAL/EXTERNAL.
+# Some DataHub instances store the parent node URN in termSource.
+# Pipeline passes through as-is and maps via UrnMapper if it looks like a URN.
+TERM_URN_TERMSOURCE = "urn:li:glossaryTerm:integration-term-urn-source"
 
 # Domains (hierarchy: root -> child)
 DOMAIN_ROOT = "urn:li:domain:integration-root-domain"
@@ -65,6 +89,21 @@ DATA_PRODUCT = "urn:li:dataProduct:integration-product"
 DATASET_1 = "urn:li:dataset:(urn:li:dataPlatform:postgres,integration_db.public.users,PROD)"
 DATASET_2 = "urn:li:dataset:(urn:li:dataPlatform:postgres,integration_db.public.orders,PROD)"
 DATASET_NO_ENRICHMENT = "urn:li:dataset:(urn:li:dataPlatform:postgres,integration_db.public.logs,PROD)"
+
+# Dataset with a mix of governance + non-governance tags.
+# System tag (__default_*) should be stripped from enrichment.
+DATASET_MIXED_TAGS = "urn:li:dataset:(urn:li:dataPlatform:postgres,integration_db.public.mixed_tags,PROD)"
+
+# Dataset on a different platform (snowflake) for multi-platform scope testing.
+DATASET_SNOWFLAKE = "urn:li:dataset:(urn:li:dataPlatform:snowflake,warehouse.public.events,PROD)"
+
+# Dataset with the "assigned then deleted" tag. After the tag is soft-deleted,
+# enrichment should not include the tag reference.
+DATASET_WITH_DELETED_TAG = "urn:li:dataset:(urn:li:dataPlatform:postgres,integration_db.public.deleted_tag_ref,PROD)"
+
+# Dataset with empty aspects (GlobalTags with tags=[], Ownership with owners=[]).
+# Tests that the pipeline handles empty-but-present aspects gracefully.
+DATASET_EMPTY_ASPECTS = "urn:li:dataset:(urn:li:dataPlatform:postgres,integration_db.public.empty_aspects,PROD)"
 
 # Charts
 CHART_1 = "urn:li:chart:(looker,integration-chart-1)"
@@ -91,6 +130,8 @@ ALL_GOVERNANCE_URNS = {
     NODE_CHILD,
     TERM_A,
     TERM_B,
+    TERM_NULL_NAME,
+    TERM_URN_TERMSOURCE,
     DOMAIN_ROOT,
     DOMAIN_CHILD,
     DATA_PRODUCT,
@@ -129,6 +170,15 @@ def seed_tags(graph: DataHubGraph) -> None:
                 aspect=TagPropertiesClass(
                     name="__default_integration_test",
                     description="System tag, should not be exported",
+                ),
+            ),
+            # Tag that will be assigned to a dataset then soft-deleted.
+            # Created here so it exists before enrichment is seeded.
+            MetadataChangeProposalWrapper(
+                entityUrn=TAG_ASSIGNED_THEN_DELETED,
+                aspect=TagPropertiesClass(
+                    name="Integration Assigned Then Deleted",
+                    description="Will be assigned to a dataset, then soft-deleted",
                 ),
             ),
         ],
@@ -175,6 +225,33 @@ def seed_glossary(graph: DataHubGraph) -> None:
                     definition="Term B: under child node",
                     name="Integration Term B",
                     termSource="INTERNAL",
+                    parentNode=NODE_CHILD,
+                ),
+            ),
+            # ── Data model quirk: term with null name ──
+            # DataHub does not always populate GlossaryTermInfo.name.
+            # Terms created via certain code paths or older SDK versions
+            # may have null names. Pipeline should derive name from URN.
+            MetadataChangeProposalWrapper(
+                entityUrn=TERM_NULL_NAME,
+                aspect=GlossaryTermInfoClass(
+                    definition="Term with null name for quirk testing",
+                    name=None,
+                    termSource="INTERNAL",
+                    parentNode=NODE_ROOT,
+                ),
+            ),
+            # ── Data model quirk: URN in termSource ──
+            # Some DataHub instances store the parent node URN in
+            # termSource instead of the expected "INTERNAL"/"EXTERNAL".
+            # Pipeline passes through as-is and maps via UrnMapper
+            # if it looks like a URN.
+            MetadataChangeProposalWrapper(
+                entityUrn=TERM_URN_TERMSOURCE,
+                aspect=GlossaryTermInfoClass(
+                    definition="Term with URN in termSource",
+                    name="Integration Term URN Source",
+                    termSource=NODE_CHILD,  # URN instead of enum!
                     parentNode=NODE_CHILD,
                 ),
             ),
@@ -259,6 +336,38 @@ def seed_data_assets(graph: DataHubGraph) -> None:
                 aspect=DatasetPropertiesClass(
                     name="logs",
                     description="Logs table (no enrichment)",
+                ),
+            ),
+            # Dataset with mixed governance/non-governance tags
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_MIXED_TAGS,
+                aspect=DatasetPropertiesClass(
+                    name="mixed_tags",
+                    description="Dataset with governance + system tags",
+                ),
+            ),
+            # Dataset on snowflake (different platform for scope testing)
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_SNOWFLAKE,
+                aspect=DatasetPropertiesClass(
+                    name="events",
+                    description="Snowflake events table",
+                ),
+            ),
+            # Dataset referencing a tag that will be soft-deleted
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_WITH_DELETED_TAG,
+                aspect=DatasetPropertiesClass(
+                    name="deleted_tag_ref",
+                    description="Dataset with tag that gets soft-deleted",
+                ),
+            ),
+            # Dataset with empty aspects
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_EMPTY_ASPECTS,
+                aspect=DatasetPropertiesClass(
+                    name="empty_aspects",
+                    description="Dataset with empty tag/owner lists",
                 ),
             ),
             # Chart
@@ -431,12 +540,110 @@ def seed_enrichment(graph: DataHubGraph) -> None:
                     ]
                 ),
             ),
+            # ── Edge case: mixed governance + non-governance tags ──
+            # TAG_PII is governance (exported), TAG_SYSTEM is system (filtered).
+            # Enrichment should include TAG_PII but NOT TAG_SYSTEM.
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_MIXED_TAGS,
+                aspect=GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass(tag=TAG_PII),
+                        TagAssociationClass(tag=TAG_SYSTEM),
+                    ]
+                ),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_MIXED_TAGS,
+                aspect=DomainsClass(domains=[DOMAIN_ROOT]),
+            ),
+            # Field-level: one field with only non-governance tag (should be excluded),
+            # one field with governance tag (should be included).
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_MIXED_TAGS,
+                aspect=EditableSchemaMetadataClass(
+                    editableSchemaFieldInfo=[
+                        # Field with only system tag -> should NOT appear in export
+                        EditableSchemaFieldInfoClass(
+                            fieldPath="system_only_field",
+                            globalTags=GlobalTagsClass(
+                                tags=[TagAssociationClass(tag=TAG_SYSTEM)]
+                            ),
+                        ),
+                        # Field with governance tag -> should appear
+                        EditableSchemaFieldInfoClass(
+                            fieldPath="pii_field",
+                            globalTags=GlobalTagsClass(
+                                tags=[TagAssociationClass(tag=TAG_PII)]
+                            ),
+                        ),
+                        # Field with mixed tags -> only PII should survive
+                        EditableSchemaFieldInfoClass(
+                            fieldPath="mixed_field",
+                            globalTags=GlobalTagsClass(
+                                tags=[
+                                    TagAssociationClass(tag=TAG_PII),
+                                    TagAssociationClass(tag=TAG_SYSTEM),
+                                ]
+                            ),
+                        ),
+                    ]
+                ),
+            ),
+            # ── Edge case: tag reference to tag that will be soft-deleted ──
+            # TAG_ASSIGNED_THEN_DELETED exists now but will be soft-deleted
+            # in seed_soft_deleted(). After deletion, the tag won't be in
+            # the exported governance set, so enrichment should strip this.
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_WITH_DELETED_TAG,
+                aspect=GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass(tag=TAG_PII),
+                        TagAssociationClass(tag=TAG_ASSIGNED_THEN_DELETED),
+                    ]
+                ),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_WITH_DELETED_TAG,
+                aspect=DomainsClass(domains=[DOMAIN_ROOT]),
+            ),
+            # ── Edge case: snowflake dataset with enrichment ──
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_SNOWFLAKE,
+                aspect=GlobalTagsClass(
+                    tags=[TagAssociationClass(tag=TAG_FINANCIAL)]
+                ),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_SNOWFLAKE,
+                aspect=DomainsClass(domains=[DOMAIN_CHILD]),
+            ),
+            # ── Edge case: empty aspects ──
+            # Write empty tag and ownership lists. DataHub may or may not
+            # persist these. The pipeline should handle either case.
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_EMPTY_ASPECTS,
+                aspect=GlobalTagsClass(tags=[]),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=DATASET_EMPTY_ASPECTS,
+                aspect=OwnershipClass(owners=[]),
+            ),
         ],
     )
 
 
 def seed_soft_deleted(graph: DataHubGraph) -> None:
-    """Create entities then soft-delete them, for deletion propagation tests."""
+    """Create entities then soft-delete them, for deletion propagation tests.
+
+    Only entity types with a registered ``status`` aspect can be soft-deleted
+    via ``soft_delete_entity()``. In current DataHub head, ``domain`` does NOT
+    have this aspect (returns 422). Tags and glossary terms do support it.
+
+    Also soft-deletes TAG_ASSIGNED_THEN_DELETED which was created in
+    seed_tags() and assigned to DATASET_WITH_DELETED_TAG in seed_enrichment().
+    This tests that enrichment references to deleted governance entities are
+    stripped during export.
+    """
     logger.info("Seeding soft-deleted entities...")
     _emit(
         graph,
@@ -449,17 +656,21 @@ def seed_soft_deleted(graph: DataHubGraph) -> None:
                 ),
             ),
             MetadataChangeProposalWrapper(
-                entityUrn=DOMAIN_DELETED,
-                aspect=DomainPropertiesClass(
-                    name="Integration Deleted Domain",
-                    description="This domain will be soft-deleted",
+                entityUrn=TERM_DELETED,
+                aspect=GlossaryTermInfoClass(
+                    definition="Term that will be soft-deleted",
+                    name="Integration Deleted Term",
+                    termSource="INTERNAL",
+                    parentNode=NODE_ROOT,
                 ),
             ),
         ],
     )
     # Soft-delete the entities
     graph.soft_delete_entity(TAG_DELETED)
-    graph.soft_delete_entity(DOMAIN_DELETED)
+    graph.soft_delete_entity(TERM_DELETED)
+    # Soft-delete the tag that was already assigned to a dataset
+    graph.soft_delete_entity(TAG_ASSIGNED_THEN_DELETED)
     logger.info("Soft-deleted test entities created.")
 
 

@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from src.interfaces import EntityHandler, UrnMapper
+from src.scope import ENV_SUPPORTED_ENTITY_TYPES, ScopeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +155,13 @@ def _build_common_mcps(
 
 class DatasetEnrichmentHandler(EntityHandler):
 
-    def __init__(self, governance_urns: set[str] | None = None) -> None:
+    def __init__(
+        self,
+        governance_urns: set[str] | None = None,
+        scope: ScopeConfig | None = None,
+    ) -> None:
         self.governance_urns = governance_urns or set()
+        self.scope = scope
 
     @property
     def entity_type(self) -> str:
@@ -168,7 +174,12 @@ class DatasetEnrichmentHandler(EntityHandler):
     def export(self, graph: DataHubGraph) -> list[dict]:
         """Export tag/term/domain/ownership assignments on datasets + field-level metadata."""
         enriched = []
-        dataset_urns = list(graph.get_urns_by_filter(entity_types=["dataset"]))
+        dataset_urns = list(graph.get_urns_by_filter(
+            entity_types=["dataset"],
+            platform=self.scope.platforms if self.scope else None,
+            env=self.scope.env if self.scope else None,
+            extraFilters=self.scope.build_extra_filters() if self.scope else None,
+        ))
         total = len(dataset_urns)
         logger.info(f"Scanning {total} datasets for enrichment...")
         for i, urn in enumerate(dataset_urns):
@@ -279,9 +290,11 @@ class GenericEnrichmentHandler(EntityHandler):
         self,
         datahub_entity_type: str,
         governance_urns: set[str] | None = None,
+        scope: ScopeConfig | None = None,
     ) -> None:
         self._datahub_entity_type = datahub_entity_type
         self.governance_urns = governance_urns or set()
+        self.scope = scope
 
     @property
     def entity_type(self) -> str:
@@ -293,9 +306,19 @@ class GenericEnrichmentHandler(EntityHandler):
 
     def export(self, graph: DataHubGraph) -> list[dict]:
         enriched = []
+        # env only applies to entity types with an environment field —
+        # passing it for charts/dashboards/etc. would exclude all results.
+        env_filter = (
+            self.scope.env
+            if self.scope and self._datahub_entity_type in ENV_SUPPORTED_ENTITY_TYPES
+            else None
+        )
         urns = list(
             graph.get_urns_by_filter(
-                entity_types=[self._datahub_entity_type]
+                entity_types=[self._datahub_entity_type],
+                platform=self.scope.platforms if self.scope else None,
+                env=env_filter,
+                extraFilters=self.scope.build_extra_filters() if self.scope else None,
             )
         )
         total = len(urns)

@@ -22,6 +22,7 @@ from src.handlers.enrichment import (
 )
 from src.orchestrator import SyncOrchestrator
 from src.provenance import ProvenanceSource, filter_entities_by_provenance
+from src.scope import ScopeConfig
 from src.urn_mapper import PassthroughMapper
 from src.utils import collect_governance_urns, write_json
 from src.write_strategy import DryRunStrategy
@@ -61,6 +62,26 @@ def main() -> None:
             "'ui' keeps UI-authored and CI/CD entities (excludes ingestion). "
             "Default: 'all' (no filtering)."
         ),
+    )
+    parser.add_argument(
+        "--domain",
+        action="append",
+        dest="domains",
+        help="Filter enrichment to entities in this domain (repeatable)",
+    )
+    parser.add_argument(
+        "--platform",
+        action="append",
+        dest="platforms",
+        help="Filter enrichment to entities on this platform (repeatable)",
+    )
+    parser.add_argument(
+        "--env",
+        help="Filter enrichment to entities in this environment (e.g., PROD)",
+    )
+    parser.add_argument(
+        "--scope-config",
+        help="Path to YAML scope configuration file",
     )
     args = parser.parse_args()
 
@@ -116,8 +137,14 @@ def main() -> None:
             f"governance URNs)..."
         )
 
+        scope = ScopeConfig.from_cli_args(args)
+        if scope.is_scoped:
+            logger.info(f"Enrichment scope: {scope}")
+
         # Dataset enrichment (includes editableSchemaMetadata)
-        ds_handler = DatasetEnrichmentHandler(governance_urns=governance_urns)
+        ds_handler = DatasetEnrichmentHandler(
+            governance_urns=governance_urns, scope=scope
+        )
         registry.register(ds_handler)
         ds_entities = ds_handler.export(dev_graph)
         exports[ds_handler.entity_type] = ds_entities
@@ -127,7 +154,7 @@ def main() -> None:
         for et in ENRICHABLE_ENTITY_TYPES:
             if et == "dataset":
                 continue
-            handler = GenericEnrichmentHandler(et, governance_urns)
+            handler = GenericEnrichmentHandler(et, governance_urns, scope=scope)
             registry.register(handler)
             entities = handler.export(dev_graph)
             exports[handler.entity_type] = entities

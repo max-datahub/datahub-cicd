@@ -1,0 +1,28 @@
+# Scope configuration for datahub-cicd enrichment export.
+#
+# Scope filters restrict which entities are scanned for enrichment
+# (tags, terms, domains, ownership assignments). Governance entities
+# (tags, glossary terms/nodes, domains, data products) are always
+# exported globally regardless of scope.
+#
+# Usage:
+#   python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/example-scope.yaml
+
+scope:
+  # Domain URNs — only export enrichment for entities in these domains.
+  # Accepts full URNs. Repeatable.
+  domains:
+    - urn:li:domain:marketing
+    - urn:li:domain:finance
+
+  # Platform names — only export enrichment for entities on these platforms.
+  # Uses DataHub platform identifiers (e.g., snowflake, bigquery, looker).
+  platforms:
+    - snowflake
+
+  # Environment — only export enrichment for entities in this environment.
+  # Common values: PROD, DEV, STAGING.
+  # Note: env filtering only applies to datasets and containers.
+  # Charts, dashboards, dataFlows, and dataProducts lack an environment
+  # field and are unaffected by this filter.
+  env: PROD

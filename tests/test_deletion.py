@@ -23,12 +23,15 @@ class TestDetectSoftDeleted:
         assert result[0]["entity_type"] == "tag"
 
     def test_detects_across_multiple_entity_types(self, mock_graph):
+        """Default entity types include tag, glossaryNode, glossaryTerm, dataProduct.
+        Domain is excluded (no status aspect in DataHub entity registry).
+        """
         def side_effect(entity_types, status):
             et = entity_types[0]
             if et == "tag":
                 return ["urn:li:tag:deleted-tag"]
-            elif et == "domain":
-                return ["urn:li:domain:deleted-domain"]
+            elif et == "dataProduct":
+                return ["urn:li:dataProduct:deleted-product"]
             return []
 
         mock_graph.get_urns_by_filter.side_effect = side_effect
@@ -37,9 +40,9 @@ class TestDetectSoftDeleted:
         urns = {r["urn"] for r in result}
         types = {r["entity_type"] for r in result}
         assert "urn:li:tag:deleted-tag" in urns
-        assert "urn:li:domain:deleted-domain" in urns
+        assert "urn:li:dataProduct:deleted-product" in urns
         assert "tag" in types
-        assert "domain" in types
+        assert "dataProduct" in types
 
     def test_custom_entity_types(self, mock_graph):
         mock_graph.get_urns_by_filter.return_value = [

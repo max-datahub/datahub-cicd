@@ -239,6 +239,18 @@ Detect soft-deleted governance entities in dev and write a `deletions.json` mani
 python -m src.cli.export_cmd --output-dir metadata/ --include-deletions
 ```
 
+> **Limitation — `status` aspect support:** Soft-deletion uses the `StatusClass` aspect (`status.removed=true`). Not all entity types have this aspect registered in the DataHub entity registry. The table below shows support for the governance entity types this pipeline manages:
+>
+> | Entity Type | Soft-delete support | Notes |
+> |---|---|---|
+> | `tag` | Supported | |
+> | `glossaryNode` | Supported | |
+> | `glossaryTerm` | Supported | |
+> | `domain` | **Not supported** | No `status` aspect registered. `soft_delete_entity()` returns 422. Requires GraphQL `deleteDomain` mutation instead. |
+> | `dataProduct` | Supported | |
+>
+> The pipeline only scans entity types that support the `status` aspect. Domain deletions must be handled separately (e.g., via the DataHub UI or GraphQL API).
+
 #### Provenance filtering
 
 Export only UI-authored governance entities (excludes ingestion-created):
@@ -252,6 +264,68 @@ Both flags can be combined:
 ```bash
 python -m src.cli.export_cmd --output-dir metadata/ --include-deletions --filter-by-source ui
 ```
+
+#### Enrichment scoping
+
+By default, all entities in DataHub are scanned for enrichment. For large instances, scope the enrichment export to specific domains, platforms, and/or environments:
+
+```bash
+# Export enrichment only for entities in a specific domain
+python -m src.cli.export_cmd --output-dir metadata/ --domain urn:li:domain:marketing
+
+# Multiple domains (repeatable flag)
+python -m src.cli.export_cmd --output-dir metadata/ \
+  --domain urn:li:domain:marketing \
+  --domain urn:li:domain:finance
+
+# Filter by platform
+python -m src.cli.export_cmd --output-dir metadata/ --platform snowflake
+
+# Filter by environment (applies to datasets and containers only)
+python -m src.cli.export_cmd --output-dir metadata/ --env PROD
+
+# Combine all scope filters
+python -m src.cli.export_cmd --output-dir metadata/ \
+  --domain urn:li:domain:marketing \
+  --platform snowflake \
+  --env PROD
+```
+
+Scope can also be loaded from a YAML configuration file:
+
+```bash
+python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/example-scope.yaml
+```
+
+YAML schema (`config/example-scope.yaml`):
+
+```yaml
+scope:
+  domains:
+    - urn:li:domain:marketing
+    - urn:li:domain:finance
+  platforms:
+    - snowflake
+  env: PROD
+```
+
+CLI flags override YAML values when both are provided:
+
+```bash
+# YAML sets domain=marketing, CLI overrides env to PROD
+python -m src.cli.export_cmd --output-dir metadata/ \
+  --scope-config config/example-scope.yaml --env PROD
+```
+
+**Scope behavior:**
+
+| Filter | Mechanism | Applies to |
+|---|---|---|
+| `--domain` | Elasticsearch `extraFilters` on `domains` field | All enrichment entity types |
+| `--platform` | SDK `platform` parameter on `get_urns_by_filter()` | All enrichment entity types |
+| `--env` | SDK `env` parameter on `get_urns_by_filter()` | Datasets and containers only (charts, dashboards, dataFlows, dataProducts lack an environment field) |
+
+Governance entities (tags, glossary terms/nodes, domains, data products) are always exported globally regardless of scope. Scope only restricts which data assets are scanned for enrichment assignments.
 
 ### Sync to prod
 
@@ -283,6 +357,13 @@ export DATAHUB_DEV_URL=http://dev-datahub:8080
 export DATAHUB_DEV_TOKEN=your-dev-token
 
 python -m src.cli.sync_cmd --metadata-dir metadata/ --live-enrichment
+```
+
+Scope filters (`--domain`, `--platform`, `--env`, `--scope-config`) can be used with `--live-enrichment` to restrict which entities are exported live. When syncing from files, scope is already baked into the exported JSON.
+
+```bash
+python -m src.cli.sync_cmd --metadata-dir metadata/ --live-enrichment \
+  --domain urn:li:domain:marketing --platform snowflake --env PROD
 ```
 
 ### GitHub Actions
@@ -344,6 +425,7 @@ These are inherent properties of DataHub's data model that affect any cross-envi
 | **No write-time reference validation** | DataHub silently accepts aspects referencing non-existent entities (e.g., a tag assignment referencing a tag URN that was never created). Only `structuredProperties` validates at write time. For all other aspects (globalTags, glossaryTerms, domains, ownership, parentNode), dangling references are stored without error. | Dependency-ordered execution ensures definitions exist before assignments. However, if a definition sync fails, subsequent enrichment proceeds with dangling references. No pre-flight existence check. |
 | **No transaction atomicity** | Each MCP is an independent write. A sync of 100 entities can leave 50 applied and 50 unapplied if the process fails midway. There is no multi-MCP atomic commit or server-side rollback. | Per-entity result tracking with error reporting. Re-running is safe (idempotent under full overwrite). No resume-from-checkpoint yet. |
 | **Deletion propagation is opt-in and time-bounded** | DataHub's ingestion model is additive (UPSERT creates/updates, never deletes). Soft-deleted entities remain as queryable tombstones only until the GC retention window expires (default 10 days), after which they are hard-deleted and undetectable. Enrichment aspects referencing deleted entities are not automatically cleaned up by DataHub; dangling references persist until overwritten. | Opt-in via `--include-deletions` / `--apply-deletions`. Detects soft-deleted governance entities in dev and applies soft-deletes to prod. Enrichment reference cleanup happens naturally via UPSERT sync (full aspect replace removes stale references). Limitation: exports must run within the GC retention window or deletions will be missed silently. |
+| **Soft-delete requires `status` aspect** | Not all entity types support the `StatusClass` aspect needed for `soft_delete_entity()`. Notably, `domain` does NOT have this aspect registered — calling `soft_delete_entity()` on a domain returns 422. Tags, glossary nodes, glossary terms, and data products all support it. | The pipeline only scans entity types with `status` aspect support for deletion detection. Domain deletions require the GraphQL `deleteDomain` mutation and are not currently handled by the pipeline. |
 | **UUID URNs by default** | Most governance entity types (tags, glossary, domains, data products, forms, policies, ownership types) generate random UUID URNs when created via the DataHub UI. The same logical entity created independently in two environments will have different URNs, causing duplicates on sync. | UUID passthrough assumption (entities created only in dev). Future: `NameBasedMapper` for environments with independent entity creation. |
 | **Dataset URNs encode environment specifics** | Dataset URNs include platform instance, database name, and environment/fabric type. The same physical table in dev and prod typically has different URNs unless ingestion is configured identically. | Many-to-many ingestion assumption (identical URNs). Future: `PatternMapper` or `MappingFileMapper` for divergent URNs. |
 | **Aspect provenance is last-writer-wins** | DataHub records provenance per aspect via `systemMetadata`: UI writes set `appSource: "ui"`, ingestion sets `runId` + `pipelineName`, and this pipeline tags writes with `appSource: "cicd-pipeline"`. However, only the **most recent writer** is recorded — there is no audit history. If an ingestion pipeline overwrites a UI-authored aspect, the UI provenance is lost (see [Scenario 6 in conflict-behavior.md](docs/conflict-behavior.md#scenario-6-concurrent-edits-in-prod-overwrite)). Entities created before systemMetadata tracking have no provenance at all. | Provenance filtering via `--filter-by-source ui` exports only UI-authored and CI/CD-authored governance entities (excluding ingestion-created). Entities with unknown provenance are included to avoid false exclusions. Enrichment is additionally filtered by governance URN references regardless of provenance. |
@@ -478,8 +560,20 @@ The integration test suite:
 1. Downloads the official DataHub quickstart `docker-compose.yml`
 2. Starts all services with a dedicated project name (`datahub-cicd-integration`)
 3. Seeds deterministic test entities covering all supported types:
-   - Governance: tags (incl. system tag for filtering), glossary nodes (nested), glossary terms (with parents), domains (nested), data products (with assets)
-   - Data assets: datasets, charts, dashboards, containers, dataflows
+   - Governance: tags (incl. system tag for filtering), glossary nodes (nested), glossary terms (with parents, incl. null-name and URN-in-termSource quirks), domains (nested), data products (with assets)
+   - Data assets: datasets (postgres/PROD + snowflake/PROD for multi-platform), charts (looker), dashboards (looker), containers, dataflows
    - Enrichment: tags, terms, domains, ownership on all asset types + field-level tags/terms on datasets
-4. Runs the export CLI and validates JSON output against expected entities
+   - Edge cases: mixed governance/non-governance tag assignments, tags assigned then soft-deleted, empty aspect lists (tags=[], owners=[])
+4. Runs the export CLI and validates JSON output against expected entities:
+   - **Unscoped export**: full export of all entity types
+   - **Domain-scoped export** (`--domain`): verifies entities in the specified domain are included, others excluded
+   - **Platform-scoped export** (`--platform`): verifies platform filtering (e.g., postgres datasets included, looker charts excluded)
+   - **Combined scope** (`--domain` + `--platform` + `--env`): verifies AND intersection of all filters
+   - **YAML scope** (`--scope-config`): verifies YAML config produces equivalent results to CLI flags
+   - **Empty scope** (`--domain nonexistent`): verifies graceful handling with valid empty JSON output
+   - **Governance URN filtering**: verifies system tags stripped from enrichment (entity-level and field-level)
+   - **Soft-deleted governance**: verifies deleted tag references stripped from enrichment
+   - **Data model quirks**: glossary term with null name (derived from URN), URN in termSource (passthrough)
+   - **Empty aspects**: entities with empty tag/owner lists produce no enrichment
+   - **Export-then-sync round-trip**: full pipeline end-to-end, verifying entities readable via graph API after sync
 5. Tears down all containers on completion

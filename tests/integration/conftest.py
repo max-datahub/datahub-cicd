@@ -214,10 +214,43 @@ def integration_graph(datahub_up) -> DataHubGraph:
     return _get_graph(GMS_URL)
 
 
+def _wait_for_elasticsearch_sync(graph: DataHubGraph, timeout: int = 60) -> None:
+    """Wait for Elasticsearch to index all seeded entities.
+
+    After writing MCPs, ES needs time to index them before
+    get_urns_by_filter() can find them. We poll until all expected
+    entity types have at least one result AND soft-deleted entities
+    are no longer returned by the active filter.
+    """
+    from datahub.ingestion.graph.filters import RemovedStatusFilter
+
+    from tests.integration.seed import TAG_ASSIGNED_THEN_DELETED, TAG_PII
+
+    expected_types = ["tag", "glossaryTerm", "domain", "dataset", "chart",
+                      "dashboard", "container", "dataFlow", "dataProduct"]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        all_found = True
+        for et in expected_types:
+            urns = list(graph.get_urns_by_filter(entity_types=[et]))
+            if not urns:
+                all_found = False
+                break
+        # Also verify soft-deletes are indexed: TAG_ASSIGNED_THEN_DELETED
+        # must NOT appear in the active (NOT_SOFT_DELETED) tag list.
+        active_tags = list(graph.get_urns_by_filter(entity_types=["tag"]))
+        soft_deletes_indexed = TAG_ASSIGNED_THEN_DELETED not in active_tags
+        if all_found and TAG_PII in active_tags and soft_deletes_indexed:
+            logger.info("Elasticsearch sync complete — all entity types discoverable, soft-deletes indexed.")
+            return
+        time.sleep(2)
+    logger.warning(f"ES sync timed out after {timeout}s — some entities may not be indexed yet.")
+
+
 @pytest.fixture(scope="session")
 def seeded_graph(integration_graph) -> DataHubGraph:
     seed_all(integration_graph)
-    time.sleep(5)
+    _wait_for_elasticsearch_sync(integration_graph)
     return integration_graph
 
 
@@ -275,3 +308,167 @@ def export_dir_with_deletions(seeded_graph):
     logger.info(f"Export with deletions output:\n{result.stdout}")
     yield tmpdir
     shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def _run_scoped_export(
+    seeded_graph: DataHubGraph,
+    extra_args: list[str],
+    prefix: str = "datahub-cicd-scoped-",
+) -> str:
+    """Helper: run the export CLI with extra arguments and return the output dir."""
+    tmpdir = tempfile.mkdtemp(prefix=prefix)
+    env = {
+        **os.environ,
+        "DATAHUB_DEV_URL": GMS_URL,
+        "DATAHUB_DEV_TOKEN": "",
+    }
+    cmd = ["python", "-m", "src.cli.export_cmd", "--output-dir", tmpdir] + extra_args
+    result = subprocess.run(
+        cmd, env=env, capture_output=True, text=True, timeout=120,
+    )
+    if result.returncode != 0:
+        logger.error(
+            f"Scoped export failed ({extra_args}):\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        raise RuntimeError(f"Scoped export CLI failed: {result.stderr}")
+    logger.info(f"Scoped export output ({extra_args}):\n{result.stdout}")
+    return tmpdir
+
+
+@pytest.fixture(scope="session")
+def export_dir_domain_scoped(seeded_graph):
+    """Export with --domain filter (root domain only)."""
+    from tests.integration.seed import DOMAIN_ROOT
+
+    tmpdir = _run_scoped_export(
+        seeded_graph, ["--domain", DOMAIN_ROOT], prefix="datahub-cicd-domain-"
+    )
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def export_dir_platform_scoped(seeded_graph):
+    """Export with --platform filter (postgres only)."""
+    tmpdir = _run_scoped_export(
+        seeded_graph, ["--platform", "postgres"], prefix="datahub-cicd-platform-"
+    )
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def export_dir_combined_scoped(seeded_graph):
+    """Export with --domain + --platform + --env combined scope."""
+    from tests.integration.seed import DOMAIN_ROOT
+
+    tmpdir = _run_scoped_export(
+        seeded_graph,
+        ["--domain", DOMAIN_ROOT, "--platform", "postgres", "--env", "PROD"],
+        prefix="datahub-cicd-combined-",
+    )
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def export_dir_yaml_scoped(seeded_graph):
+    """Export with --scope-config YAML file."""
+    from tests.integration.seed import DOMAIN_ROOT
+
+    # Write a temporary scope config
+    scope_dir = tempfile.mkdtemp(prefix="datahub-cicd-yaml-scope-cfg-")
+    scope_file = os.path.join(scope_dir, "scope.yaml")
+    with open(scope_file, "w") as f:
+        f.write(f"scope:\n  domains:\n    - {DOMAIN_ROOT}\n  platforms:\n    - postgres\n")
+
+    tmpdir = _run_scoped_export(
+        seeded_graph,
+        ["--scope-config", scope_file],
+        prefix="datahub-cicd-yaml-",
+    )
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)
+    shutil.rmtree(scope_dir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def export_dir_empty_scope(seeded_graph):
+    """Export with --domain pointing to a nonexistent domain.
+
+    Should succeed (exit 0) with empty enrichment files.
+    """
+    tmpdir = _run_scoped_export(
+        seeded_graph,
+        ["--domain", "urn:li:domain:nonexistent-domain-12345"],
+        prefix="datahub-cicd-empty-scope-",
+    )
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def sync_round_trip_dir(seeded_graph, export_dir):
+    """Sync exported JSON back to the same DataHub instance.
+
+    To make this more than an idempotent no-op, we mutate a tag's
+    description before syncing. The sync should overwrite the mutation
+    back to the exported value, proving that UPSERT actually writes.
+
+    Validates the full export -> sync pipeline end-to-end.
+    """
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import TagPropertiesClass
+
+    from tests.integration.seed import TAG_PII
+
+    # Mutate TAG_PII's description to something different.
+    # After sync, it should be restored to the exported value.
+    seeded_graph.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=TAG_PII,
+            aspect=TagPropertiesClass(
+                name="Integration PII",
+                description="MUTATED -- should be overwritten by sync",
+                colorHex="#FF0000",
+            ),
+        )
+    )
+    # Verify the mutation took effect
+    mutated = seeded_graph.get_aspect(TAG_PII, TagPropertiesClass)
+    assert mutated.description == "MUTATED -- should be overwritten by sync"
+
+    env = {
+        **os.environ,
+        "DATAHUB_PROD_URL": GMS_URL,
+        "DATAHUB_PROD_TOKEN": "",
+    }
+    result = subprocess.run(
+        [
+            "python", "-m", "src.cli.sync_cmd",
+            "--metadata-dir", export_dir,
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        logger.error(
+            f"Sync round-trip failed:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        raise RuntimeError(f"Sync CLI failed: {result.stderr}")
+    logger.info(f"Sync round-trip output:\n{result.stdout}")
+    yield {
+        "export_dir": export_dir,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
+
+
+@pytest.fixture(scope="session")
+def sync_round_trip_graph(sync_round_trip_dir, integration_graph):
+    """DataHubGraph after sync round-trip, for verifying synced entities."""
+    return integration_graph
