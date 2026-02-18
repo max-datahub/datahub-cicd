@@ -17,6 +17,8 @@ def mock_graph():
     graph.get_glossary_terms.return_value = None
     graph.get_domain.return_value = None
     graph.emit_mcp.return_value = None
+    graph.soft_delete_entity.return_value = None
+    graph.get_entity_as_mcps.return_value = []
     return graph
 
 

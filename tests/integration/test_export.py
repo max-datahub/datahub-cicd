@@ -345,3 +345,40 @@ class TestExportCompleteness:
                 assert d in gov_urns, (
                     f"Domain {d} on {ds['dataset_urn']} not in governance"
                 )
+
+
+# ── Deletion export ─────────────────────────────────────────────────────
+
+
+class TestDeletionExport:
+    def test_deletions_file_exists(self, export_dir_with_deletions):
+        path = os.path.join(export_dir_with_deletions, "deletions.json")
+        assert os.path.exists(path), "deletions.json should exist"
+
+    def test_soft_deleted_entities_detected(self, export_dir_with_deletions):
+        deletions = _load(export_dir_with_deletions, "deletions.json")
+        urns = {d["urn"] for d in deletions}
+        assert seed.TAG_DELETED in urns, (
+            f"Soft-deleted tag should be in deletions.json, got: {urns}"
+        )
+        assert seed.DOMAIN_DELETED in urns, (
+            f"Soft-deleted domain should be in deletions.json, got: {urns}"
+        )
+
+    def test_active_entities_excluded_from_deletions(
+        self, export_dir_with_deletions
+    ):
+        deletions = _load(export_dir_with_deletions, "deletions.json")
+        urns = {d["urn"] for d in deletions}
+        assert seed.TAG_PII not in urns, "Active tag should not be in deletions"
+        assert seed.DOMAIN_ROOT not in urns, (
+            "Active domain should not be in deletions"
+        )
+
+    def test_deletion_entries_have_entity_type(
+        self, export_dir_with_deletions
+    ):
+        deletions = _load(export_dir_with_deletions, "deletions.json")
+        for d in deletions:
+            assert "urn" in d
+            assert "entity_type" in d

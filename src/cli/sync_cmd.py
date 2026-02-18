@@ -3,6 +3,7 @@
 Usage:
     python -m src.cli.sync_cmd --metadata-dir metadata/ [--dry-run]
     python -m src.cli.sync_cmd --metadata-dir metadata/ --live-enrichment [--dry-run]
+    python -m src.cli.sync_cmd --metadata-dir metadata/ --apply-deletions [--dry-run]
 """
 
 import argparse
@@ -11,6 +12,7 @@ import os
 import sys
 
 from src.client import get_dev_graph, get_prod_graph
+from src.deletion import apply_deletions
 from src.handlers import create_default_registry
 from src.handlers.enrichment import (
     ENRICHABLE_ENTITY_TYPES,
@@ -49,6 +51,14 @@ def main() -> None:
         help=(
             "Export enrichment live from dev instead of reading from files. "
             "Requires DATAHUB_DEV_URL and DATAHUB_DEV_TOKEN."
+        ),
+    )
+    parser.add_argument(
+        "--apply-deletions",
+        action="store_true",
+        help=(
+            "Apply soft-deletions from deletions.json to prod. "
+            "Must be paired with --include-deletions during export."
         ),
     )
     args = parser.parse_args()
@@ -107,12 +117,33 @@ def main() -> None:
     logger.info("Connecting to prod DataHub...")
     prod_graph = get_prod_graph()
 
+    # Apply deletions before syncing (so deleted entities don't get re-created)
+    if args.apply_deletions:
+        deletions_path = os.path.join(metadata_dir, "deletions.json")
+        deletions = read_json(deletions_path)
+        if deletions:
+            logger.info(
+                f"Applying {len(deletions)} deletions to prod "
+                f"({'DRY RUN' if args.dry_run else 'LIVE'})..."
+            )
+            deletion_results = apply_deletions(
+                prod_graph, deletions, dry_run=args.dry_run
+            )
+        else:
+            logger.info("No deletions to apply (deletions.json is empty)")
+            deletion_results = []
+    else:
+        deletion_results = []
+
     orchestrator = SyncOrchestrator(
         registry=registry,
         urn_mapper=PassthroughMapper(),
         write_strategy=write_strategy,
     )
     orchestrator.sync_all(prod_graph, exports)
+
+    # Append deletion results for unified summary
+    orchestrator.results.extend(deletion_results)
     orchestrator.print_summary()
 
     if orchestrator.has_failures():

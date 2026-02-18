@@ -2,6 +2,7 @@ import logging
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import SystemMetadataClass
 
 from src.interfaces import SyncResult, WriteStrategy
 
@@ -11,6 +12,12 @@ logger = logging.getLogger(__name__)
 # Each MCP is one HTTP request in non-batch mode; batch mode sends
 # multiple MCPs in a single request via graph.emit_mcps().
 DEFAULT_BATCH_SIZE = 100
+
+# System metadata tag applied to all MCPs emitted by the CI/CD pipeline.
+# Enables provenance filtering to distinguish pipeline writes from human writes.
+CICD_SYSTEM_METADATA = SystemMetadataClass(
+    properties={"appSource": "cicd-pipeline"}
+)
 
 
 class OverwriteStrategy(WriteStrategy):
@@ -30,6 +37,7 @@ class OverwriteStrategy(WriteStrategy):
         results = []
         for mcp in mcps:
             try:
+                mcp.systemMetadata = CICD_SYSTEM_METADATA
                 graph.emit_mcp(mcp)
                 results.append(
                     SyncResult(

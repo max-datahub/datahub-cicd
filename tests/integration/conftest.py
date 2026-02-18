@@ -244,3 +244,34 @@ def export_dir(seeded_graph):
     logger.info(f"Export output:\n{result.stdout}")
     yield tmpdir
     shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def export_dir_with_deletions(seeded_graph):
+    """Export with --include-deletions flag for deletion propagation tests."""
+    tmpdir = tempfile.mkdtemp(prefix="datahub-cicd-export-deletions-")
+    env = {
+        **os.environ,
+        "DATAHUB_DEV_URL": GMS_URL,
+        "DATAHUB_DEV_TOKEN": "",
+    }
+    result = subprocess.run(
+        [
+            "python", "-m", "src.cli.export_cmd",
+            "--output-dir", tmpdir,
+            "--include-deletions",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode != 0:
+        logger.error(
+            f"Export with deletions failed:\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+        raise RuntimeError(f"Export CLI (deletions) failed: {result.stderr}")
+    logger.info(f"Export with deletions output:\n{result.stdout}")
+    yield tmpdir
+    shutil.rmtree(tmpdir, ignore_errors=True)

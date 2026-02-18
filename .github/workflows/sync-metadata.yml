@@ -6,6 +6,17 @@ on:
         description: "Preview without writing to prod"
         type: boolean
         default: true
+      include_deletions:
+        description: "Detect and propagate soft-deleted governance entities"
+        type: boolean
+        default: false
+      filter_by_source:
+        description: "Filter governance entities by provenance source"
+        type: choice
+        options:
+          - all
+          - ui
+        default: all
 
 jobs:
   export:
@@ -16,7 +27,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
-      - run: python -m src.cli.export_cmd --output-dir metadata/
+      - run: >
+          python -m src.cli.export_cmd
+          --output-dir metadata/
+          ${{ inputs.include_deletions == true && '--include-deletions' || '' }}
+          ${{ inputs.filter_by_source != 'all' && format('--filter-by-source {0}', inputs.filter_by_source) || '' }}
         env:
           DATAHUB_DEV_URL: ${{ secrets.DATAHUB_DEV_URL }}
           DATAHUB_DEV_TOKEN: ${{ secrets.DATAHUB_DEV_TOKEN }}
@@ -42,6 +57,7 @@ jobs:
           python -m src.cli.sync_cmd
           --metadata-dir metadata/
           ${{ inputs.dry_run == true && '--dry-run' || '' }}
+          ${{ inputs.include_deletions == true && '--apply-deletions' || '' }}
         env:
           DATAHUB_PROD_URL: ${{ secrets.DATAHUB_PROD_URL }}
           DATAHUB_PROD_TOKEN: ${{ secrets.DATAHUB_PROD_TOKEN }}

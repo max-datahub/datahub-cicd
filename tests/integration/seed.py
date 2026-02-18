@@ -42,6 +42,10 @@ TAG_PII = "urn:li:tag:integration-pii"
 TAG_FINANCIAL = "urn:li:tag:integration-financial"
 TAG_SYSTEM = "urn:li:tag:__default_integration_test"
 
+# Soft-deleted entities (created then deleted, for deletion propagation tests)
+TAG_DELETED = "urn:li:tag:integration-deleted-tag"
+DOMAIN_DELETED = "urn:li:domain:integration-deleted-domain"
+
 # Glossary nodes (hierarchy: root -> child)
 NODE_ROOT = "urn:li:glossaryNode:integration-root-node"
 NODE_CHILD = "urn:li:glossaryNode:integration-child-node"
@@ -431,6 +435,34 @@ def seed_enrichment(graph: DataHubGraph) -> None:
     )
 
 
+def seed_soft_deleted(graph: DataHubGraph) -> None:
+    """Create entities then soft-delete them, for deletion propagation tests."""
+    logger.info("Seeding soft-deleted entities...")
+    _emit(
+        graph,
+        [
+            MetadataChangeProposalWrapper(
+                entityUrn=TAG_DELETED,
+                aspect=TagPropertiesClass(
+                    name="Integration Deleted Tag",
+                    description="This tag will be soft-deleted",
+                ),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=DOMAIN_DELETED,
+                aspect=DomainPropertiesClass(
+                    name="Integration Deleted Domain",
+                    description="This domain will be soft-deleted",
+                ),
+            ),
+        ],
+    )
+    # Soft-delete the entities
+    graph.soft_delete_entity(TAG_DELETED)
+    graph.soft_delete_entity(DOMAIN_DELETED)
+    logger.info("Soft-deleted test entities created.")
+
+
 def seed_all(graph: DataHubGraph) -> None:
     """Run all seed functions in dependency order."""
     seed_tags(graph)
@@ -439,4 +471,5 @@ def seed_all(graph: DataHubGraph) -> None:
     seed_data_assets(graph)
     seed_data_products(graph)
     seed_enrichment(graph)
+    seed_soft_deleted(graph)
     logger.info("Seeding complete.")

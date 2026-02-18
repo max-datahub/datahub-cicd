@@ -37,11 +37,20 @@ pytest -m integration tests/integration/ -v
 # Export from dev DataHub
 python -m src.cli.export_cmd --output-dir metadata/
 
+# Export with deletion detection
+python -m src.cli.export_cmd --output-dir metadata/ --include-deletions
+
+# Export with provenance filtering (UI-authored only)
+python -m src.cli.export_cmd --output-dir metadata/ --filter-by-source ui
+
 # Sync to prod DataHub (dry-run)
 python -m src.cli.sync_cmd --metadata-dir metadata/ --dry-run
 
 # Sync to prod DataHub (live)
 python -m src.cli.sync_cmd --metadata-dir metadata/
+
+# Sync with deletion propagation
+python -m src.cli.sync_cmd --metadata-dir metadata/ --apply-deletions
 ```
 
 **Environment variables** (see `config/example.env`): `DATAHUB_DEV_URL`, `DATAHUB_DEV_TOKEN`, `DATAHUB_PROD_URL`, `DATAHUB_PROD_TOKEN`.
@@ -78,6 +87,18 @@ python -m src.cli.sync_cmd --metadata-dir metadata/
 ### Orchestrator (`src/orchestrator.py`)
 
 `SyncOrchestrator` coordinates export and sync across all handlers. Tracks per-entity `SyncResult` (success/failed/skipped) and reports failures. Progress logged every 50 entities.
+
+### Deletion Propagation (`src/deletion.py`)
+
+- `detect_soft_deleted(graph, entity_types)`: Queries DataHub for soft-deleted governance entities via `RemovedStatusFilter.ONLY_SOFT_DELETED`. Returns list of `{"urn": ..., "entity_type": ...}` dicts.
+- `apply_deletions(graph, deletions, dry_run)`: Calls `graph.soft_delete_entity(urn)` for each deletion. Per-entity error tracking. Dry-run mode returns "skipped" without deleting.
+
+### Provenance Filtering (`src/provenance.py`)
+
+- `ProvenanceSource` enum: `UI`, `INGESTION`, `CICD`, `UNKNOWN`.
+- `classify_provenance(graph, urn, aspect_name)`: Inspects `systemMetadata` on an entity's primary aspect to classify its creation source.
+- `filter_entities_by_provenance(graph, entities, entity_type, allowed_sources)`: Filters entities to only those matching allowed provenance sources.
+- CI/CD writes are tagged with `appSource: cicd-pipeline` via `CICD_SYSTEM_METADATA` in `OverwriteStrategy`.
 
 ### Utilities (`src/utils.py`)
 

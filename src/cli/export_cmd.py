@@ -3,13 +3,17 @@
 Usage:
     python -m src.cli.export_cmd --output-dir metadata/
     python -m src.cli.export_cmd --output-dir metadata/ --skip-enrichment
+    python -m src.cli.export_cmd --output-dir metadata/ --include-deletions
+    python -m src.cli.export_cmd --output-dir metadata/ --filter-by-source ui
 """
 
 import argparse
 import logging
+import os
 import sys
 
 from src.client import get_dev_graph
+from src.deletion import detect_soft_deleted
 from src.handlers import create_default_registry
 from src.handlers.enrichment import (
     ENRICHABLE_ENTITY_TYPES,
@@ -17,8 +21,9 @@ from src.handlers.enrichment import (
     GenericEnrichmentHandler,
 )
 from src.orchestrator import SyncOrchestrator
+from src.provenance import ProvenanceSource, filter_entities_by_provenance
 from src.urn_mapper import PassthroughMapper
-from src.utils import collect_governance_urns
+from src.utils import collect_governance_urns, write_json
 from src.write_strategy import DryRunStrategy
 
 logging.basicConfig(
@@ -42,6 +47,21 @@ def main() -> None:
         action="store_true",
         help="Only export governance definitions, skip enrichment",
     )
+    parser.add_argument(
+        "--include-deletions",
+        action="store_true",
+        help="Detect soft-deleted governance entities and write deletions.json",
+    )
+    parser.add_argument(
+        "--filter-by-source",
+        choices=["ui", "all"],
+        default="all",
+        help=(
+            "Filter governance entities by provenance source. "
+            "'ui' keeps UI-authored and CI/CD entities (excludes ingestion). "
+            "Default: 'all' (no filtering)."
+        ),
+    )
     args = parser.parse_args()
 
     logger.info("Connecting to dev DataHub...")
@@ -56,6 +76,38 @@ def main() -> None:
 
     logger.info(f"Exporting governance entities to {args.output_dir}/")
     exports = orchestrator.export_all(dev_graph, args.output_dir)
+
+    # Detect soft-deleted governance entities
+    if args.include_deletions:
+        logger.info("Detecting soft-deleted governance entities...")
+        deletions = detect_soft_deleted(dev_graph)
+        deletions_path = os.path.join(args.output_dir, "deletions.json")
+        write_json(deletions, deletions_path)
+        logger.info(f"Wrote {len(deletions)} deletions to {deletions_path}")
+
+    # Filter governance entities by provenance source
+    if args.filter_by_source != "all":
+        allowed = {ProvenanceSource.UI, ProvenanceSource.CICD, ProvenanceSource.UNKNOWN}
+        logger.info(
+            f"Filtering governance entities by provenance "
+            f"(allowed: {[s.value for s in allowed]})..."
+        )
+        governance_types = {"tag", "glossaryNode", "glossaryTerm", "domain", "dataProduct"}
+        for entity_type in list(exports.keys()):
+            if entity_type in governance_types:
+                original_count = len(exports[entity_type])
+                exports[entity_type] = filter_entities_by_provenance(
+                    dev_graph, exports[entity_type], entity_type, allowed
+                )
+                # Re-write filtered JSON
+                output_path = os.path.join(
+                    args.output_dir, f"{entity_type}.json"
+                )
+                write_json(exports[entity_type], output_path)
+                logger.info(
+                    f"Provenance filter {entity_type}: "
+                    f"{original_count} -> {len(exports[entity_type])}"
+                )
 
     if not args.skip_enrichment:
         governance_urns = collect_governance_urns(exports)
