@@ -4,11 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Related Repositories
 
-| Repo | Local Path | Description |
-|------|-----------|-------------|
-| DataHub Cloud (fork) | `~/Documents/Repos/datahub-fork` | Acryl DataHub Cloud source code |
-| DataHub OSS | `~/Documents/Repos/datahub` | Open-source DataHub upstream |
-| DataHub Helm Charts (fork) | `~/Documents/Repos/datahub-helm-fork` | Helm charts for DataHub deployment |
+| Repo | URL | Description |
+|------|-----|-------------|
+| DataHub OSS | https://github.com/datahub-project/datahub | Open-source DataHub upstream |
+| DataHub Helm Charts | https://github.com/acryldata/datahub-helm | Helm charts for DataHub deployment |
 
 These repos are useful for understanding the DataHub SDK, GraphQL API, entity/aspect models, and deployment configuration that this pipeline interacts with.
 

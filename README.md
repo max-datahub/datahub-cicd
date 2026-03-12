@@ -1,5 +1,7 @@
 # datahub-cicd
 
+> **Alpha** — This project is under active development. There is no stable release yet. APIs and behavior may change.
+
 CI/CD pipeline for syncing DataHub governance metadata (tags, glossary, domains, data products) and enrichment (tag/term/domain/ownership assignments on datasets, charts, dashboards, containers, and more) from dev to prod.
 
 ## Architecture
@@ -69,7 +71,7 @@ These aspects appear on the governance entities above. They are not synced in th
 | `editableNotebookProperties` | notebook | **Planned (Phase 3)** | Same pattern as dataset. |
 | `editableMlModelProperties` (and variants) | mlModel, mlModelGroup, mlFeature, mlFeatureTable, mlPrimaryKey | **Planned (Phase 3)** | Same pattern as dataset. Full governance support on all ML entities. |
 | `structuredProperties` (assignments) | dataset, chart, dashboard, container, dataJob, dataFlow, mlModel, etc. | **Planned (Phase 2)** | Property value assignments. Property URNs deterministic via `qualifiedName`. Dataset URNs require mapping in cross-env. |
-| `documentation` (SaaS-only) | dataset, dashboard, chart, container, dataJob, dataFlow, notebook | **Planned (Phase 3)** | Rich README-style docs. SaaS/Acryl Cloud only. |
+| `documentation` (SaaS-only) | dataset, dashboard, chart, container, dataJob, dataFlow, notebook | **Planned (Phase 3)** | Rich README-style docs. DataHub Cloud only. |
 | `schemaField` enrichment (tags/terms) | schemaField | **Planned (Phase 3)** | Newer column-level entity model (vs. nested `editableSchemaMetadata`). Has globalTags, glossaryTerms, structuredProperties, forms, and uniquely `businessAttributes`. URN contains parent dataset URN (identical under PoC constraints). |
 
 ### Access Control & Identity

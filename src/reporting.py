@@ -1,8 +1,8 @@
 """Run report generation: JSON + Markdown dual-format output.
 
 Single source of truth: builds a RunReport data structure, then renders
-to both JSON and Markdown. Pattern borrowed from connectors-accelerator's
-StatusFormatter approach.
+to both JSON and Markdown. Pattern borrowed from datahub-skills
+(https://github.com/datahub-project/datahub-skills) StatusFormatter approach.
 
 Usage:
     from src.reporting import RunReport
