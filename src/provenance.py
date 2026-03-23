@@ -1,9 +1,16 @@
 """Provenance filtering: classify entities by their creation source.
 
 DataHub tracks provenance via `systemMetadata.properties`:
-- UI mutations set `appSource = "ui"`
+- GraphQL mutations set `appSource = "ui"` (see caveat below)
 - CI/CD pipeline writes set `appSource = "cicd-pipeline"` (tagged by OverwriteStrategy)
 - Ingestion sets `runId` (non-default) + `pipelineName`
+
+Caveat: DataHub labels ALL GraphQL mutations as `appSource = "ui"`, not just
+those from the browser UI. Any script or SDK call that uses the /api/graphql
+endpoint (including DataHubGraph.execute_graphql()) gets the same label.
+There is no server-side differentiation between browser sessions and
+programmatic GraphQL clients. The "ui" filter therefore means "via GraphQL"
+in practice, excluding only REST/OpenAPI ingest-path writes.
 
 Usage:
     source = classify_provenance(graph, urn, "tagProperties")

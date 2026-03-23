@@ -39,7 +39,7 @@ python -m src.cli.export_cmd --output-dir metadata/
 # Export with deletion detection
 python -m src.cli.export_cmd --output-dir metadata/ --include-deletions
 
-# Export with provenance filtering (UI-authored only)
+# Export with provenance filtering (GraphQL-authored only; see caveat in provenance.py)
 python -m src.cli.export_cmd --output-dir metadata/ --filter-by-source ui
 
 # Export with enrichment scoping (domain, platform, environment)

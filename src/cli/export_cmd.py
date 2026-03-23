@@ -59,8 +59,10 @@ def main() -> None:
         default="all",
         help=(
             "Filter governance entities by provenance source. "
-            "'ui' keeps UI-authored and CI/CD entities (excludes ingestion). "
-            "Default: 'all' (no filtering)."
+            "'ui' keeps entities written via GraphQL (UI or SDK scripts) "
+            "and CI/CD entities (excludes REST/OpenAPI ingestion). "
+            "Note: DataHub labels all GraphQL mutations as 'ui', not just "
+            "browser interactions. Default: 'all' (no filtering)."
         ),
     )
     parser.add_argument(
