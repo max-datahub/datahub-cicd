@@ -275,3 +275,50 @@ class TestTargetExistenceGuard:
             write_strategy=DryRunStrategy(),
         ).sync_all(mock_graph, {"tag": [{"urn": "urn:li:tag:a"}]})
         mock_graph.exists.assert_not_called()
+
+
+class EmitsUrnHandler(StubHandler):
+    def build_mcps(self, entity, urn_mapper):
+        mcp = MagicMock()
+        mcp.entityType = "container"
+        mcp.entityUrn = entity["urn"]
+        mcp.aspectName = "containerProperties"
+        return [mcp]
+
+
+class TestGuardTrustsEarlierWrites:
+    """A URN written (or dry-run written) earlier in the same run counts as present."""
+
+    URN = "urn:li:container:new"
+
+    def _sync(self, graph, strategy):
+        registry = HandlerRegistry()
+        registry.register(EmitsUrnHandler("model"))
+        registry.register(RequiresHandler("enrichment", deps=["model"]))
+        orchestrator = SyncOrchestrator(
+            registry=registry,
+            urn_mapper=PassthroughMapper(),
+            write_strategy=strategy,
+        )
+        exports = {"model": [{"urn": self.URN}], "enrichment": [{"urn": self.URN}]}
+        return orchestrator.sync_all(graph, exports)
+
+    def test_dry_run_does_not_report_target_missing(self, mock_graph):
+        mock_graph.exists.return_value = False
+        results = self._sync(mock_graph, DryRunStrategy())
+        assert SKIP_TARGET_MISSING not in {r.skip_reason for r in results}
+        assert len(results) == 2
+        mock_graph.exists.assert_not_called()
+
+    def test_live_run_skips_exists_call(self, mock_graph):
+        mock_graph.exists.return_value = False
+        results = self._sync(mock_graph, OverwriteStrategy())
+        assert [r.status for r in results] == ["success", "success"]
+        mock_graph.exists.assert_not_called()
+
+    def test_failed_write_does_not_count_as_present(self, mock_graph):
+        mock_graph.exists.return_value = False
+        mock_graph.emit_mcp.side_effect = [ValueError("boom"), None]
+        results = self._sync(mock_graph, OverwriteStrategy())
+        assert results[-1].skip_reason == SKIP_TARGET_MISSING
+        mock_graph.exists.assert_called_once_with(self.URN)

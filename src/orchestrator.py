@@ -6,7 +6,13 @@ import traceback
 from datahub.ingestion.graph.client import DataHubGraph
 
 from src.error_classification import classify_error
-from src.interfaces import SKIP_TARGET_MISSING, SyncResult, UrnMapper, WriteStrategy
+from src.interfaces import (
+    SKIP_DRY_RUN,
+    SKIP_TARGET_MISSING,
+    SyncResult,
+    UrnMapper,
+    WriteStrategy,
+)
 from src.registry import HandlerRegistry
 from src.reporting import write_run_state
 from src.retry import retry_transient
@@ -57,6 +63,9 @@ class SyncOrchestrator:
         self._output_dir = output_dir
         self._started_at = ""
         self._completed_phases: list[dict] = []
+        # URNs written (or dry-run written) earlier in this run: the existence
+        # guard treats them as present, so dry-run matches the real run.
+        self._written_urns: set[str] = set()
 
     def _write_incremental_state(
         self, command: str, status: str = "in_progress"
@@ -165,7 +174,11 @@ class SyncOrchestrator:
                 )
                 try:
                     required = handler.required_target_urn(entity, self.urn_mapper)
-                    if required and not _exists(graph, required):
+                    if (
+                        required
+                        and required not in self._written_urns
+                        and not _exists(graph, required)
+                    ):
                         logger.warning(
                             f"Skipping {handler.entity_type} {urn}: "
                             f"{required} does not exist on target"
@@ -182,6 +195,12 @@ class SyncOrchestrator:
                         mcps = handler.build_mcps(entity, self.urn_mapper)
                         phase_results = self.write_strategy.emit(graph, mcps)
                         self.results.extend(phase_results)
+                        self._written_urns.update(
+                            r.urn
+                            for r in phase_results
+                            if r.status == "success"
+                            or r.skip_reason == SKIP_DRY_RUN
+                        )
                 except Exception as e:
                     logger.debug(
                         f"Failed to build MCPs for {handler.entity_type} "
