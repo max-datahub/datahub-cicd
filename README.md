@@ -226,7 +226,8 @@ exception.** They are hand-authored datasets on a platform whose `dataPlatformIn
   sub-container), `.../<dataset-name>.<ENV>.json`.
 - **The JSON is authoritative.** A model's parent is its `container` aspect. Moving a file by
   hand does not re-parent it (sync logs a warning); edit the aspect instead. Each export
-  regenerates the tree.
+  regenerates the tree; a `--platform` export regenerates only the in-scope platforms'
+  folders and leaves the others untouched.
 - **Name clashes fail the export.** Two sibling containers or models whose names sanitize to
   the same file/folder, case-insensitively (exports must be safe on case-insensitive
   filesystems), abort the export; rename one in DataHub.
@@ -237,6 +238,11 @@ exception.** They are hand-authored datasets on a platform whose `dataPlatformIn
   differs across environments (e.g. `DEV` vs `PROD`) is skipped, never mis-linked.
 - Every definition aspect is fully overwritten on sync. Deleting a model from git does not
   delete it on the target.
+- **Re-run after failures.** A malformed file or a container cycle fails only the entities
+  involved. A partial failure (e.g. a container write failing) can leave children pointing at
+  that container until the next successful sync.
+- **Soft deletes stick.** `status` is not synced, so a model soft-deleted on the target stays
+  hidden there after it is promoted again.
 
 ## Usage
 

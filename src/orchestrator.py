@@ -127,7 +127,7 @@ class SyncOrchestrator:
         entities: list[dict],
         output_dir: str,
     ) -> None:
-        """Write a single handler's entities to a JSON file."""
+        """Write a single handler's entities via the handler's own export format."""
         handler.write_export(entities, output_dir)
 
     def sync_all(

@@ -1,3 +1,6 @@
+import json
+
+
 import pytest
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.openapi import RelatedEntity, RelationshipDirection
@@ -236,3 +239,52 @@ def test_default_registry_orders_logical_models_before_enrichment():
     assert order.index("logicalModel") < order.index("enrichment")
     assert order.index("logicalModel") < order.index("containerEnrichment")
     assert registry.get_handler("logicalModel").platforms == ["logical"]
+
+
+def test_scoped_export_of_non_logical_platform_keeps_logical_folder(graph, exported_dir):
+    files_before = {p: p.read_text() for p in (exported_dir / "logicalModels").rglob("*.json")}
+    handler = LogicalModelHandler(platforms=["snowflake"])
+    handler.write_export(handler.export(graph), str(exported_dir))
+    assert {p: p.read_text() for p in (exported_dir / "logicalModels").rglob("*.json")} == files_before
+
+
+BAD = f"urn:li:dataset:({P},bad,PROD)"
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        {"physicalChildren": ["urn:li:dataset:x"]},
+        {"physicalChildren": [{}]},
+        {"aspects": {"container": {"container": {"container": ["x"]}}}},
+    ],
+    ids=["physical_child_string", "physical_child_without_urn", "nested_container_value"],
+)
+def test_malformed_file_fails_only_that_entity(mock_graph, exported_dir, shape):
+    body = {"urn": BAD, "aspects": {}, **shape}
+    (exported_dir / "logicalModels/logical/bad.PROD.json").write_text(json.dumps(body))
+    results = _sync(mock_graph, exported_dir)
+    assert [r.urn for r in results if r.status == "failed"] == ["logical/bad.PROD.json"]
+    assert {P, ROOT, SUB, MODEL} <= {r.urn for r in results if r.status == "success"}
+
+
+def test_container_cycle_fails_only_the_cycle(mock_graph, exported_dir, passthrough_mapper):
+    loop_a, loop_b = "urn:li:container:loop_a", "urn:li:container:loop_b"
+    under = f"urn:li:dataset:({P},under_loop,PROD)"
+    base = exported_dir / "logicalModels/logical"
+    for urn, parent, name in ((loop_a, loop_b, "a"), (loop_b, loop_a, "b")):
+        (base / name).mkdir()
+        body = {"urn": urn, "aspects": {"containerProperties": {"name": name}, "container": {"container": parent}}}
+        (base / name / "container.json").write_text(json.dumps(body))
+    (base / "under_loop.PROD.json").write_text(json.dumps({"urn": under, "aspects": {"container": {"container": loop_a}}}))
+
+    handler = LogicalModelHandler()
+    loaded = by_urn(handler.read_export(str(exported_dir)))
+    assert "cycle" in loaded[loop_a]["_load_error"] and "cycle" in loaded[loop_b]["_load_error"]
+    assert handler.required_target_urn(loaded[under], passthrough_mapper) == loop_a
+
+    mock_graph.exists.side_effect = lambda urn: urn not in (loop_a, loop_b, CHILD)
+    results = _sync(mock_graph, exported_dir)
+    assert sorted(r.urn for r in results if r.status == "failed") == [loop_a, loop_b]
+    assert any(r.urn == under and r.skip_reason == SKIP_TARGET_MISSING for r in results)
+    assert {P, ROOT, SUB, MODEL} <= {r.urn for r in results if r.status == "success"}

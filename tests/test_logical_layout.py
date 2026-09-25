@@ -144,3 +144,60 @@ def test_read_tree_isolates_file_with_malformed_aspects(tmp_path):
 
 def test_read_tree_without_directory_returns_empty(tmp_path):
     assert read_tree(str(tmp_path)) == []
+
+
+LP_B = "urn:li:dataPlatform:lp_b"
+
+
+def lp_b_tree() -> list[dict]:
+    info = {"name": "lp_b", "type": "OTHERS", "datasetNameDelimiter": ".", "logical": True}
+    return [
+        {"urn": LP_B, "entityType": "dataPlatform", "aspects": {"dataPlatformInfo": info}},
+        {"urn": f"urn:li:dataset:({LP_B},other,PROD)", "entityType": "dataset", "aspects": {"datasetProperties": {"name": "other"}}},
+    ]
+
+
+def test_scoped_write_tree_leaves_other_platforms_untouched(tmp_path):
+    write_tree(tree() + lp_b_tree(), str(tmp_path))
+    lp_b_file = tmp_path / "logicalModels/lp_b/other.PROD.json"
+    before = lp_b_file.read_text()
+    renamed = tree()
+    renamed[1] = container(ROOT, "Renamed")
+    write_tree(renamed, str(tmp_path), platforms=[P])
+    assert lp_b_file.read_text() == before
+    assert (tmp_path / "logicalModels/lp_b/platform.json").exists()
+    assert not (tmp_path / "logicalModels/logical/Customer_Domain").exists()
+    assert (tmp_path / "logicalModels/logical/Renamed/billing/invoice.PROD.json").exists()
+
+
+def test_scoped_write_tree_for_non_logical_platform_deletes_nothing(tmp_path):
+    write_tree(tree() + lp_b_tree(), str(tmp_path))
+    files_before = sorted(p for p in (tmp_path / "logicalModels").rglob("*.json"))
+    write_tree([], str(tmp_path), platforms=["urn:li:dataPlatform:snowflake"])
+    assert sorted(p for p in (tmp_path / "logicalModels").rglob("*.json")) == files_before
+
+
+def test_scoped_write_tree_removes_in_scope_platform_with_no_entities(tmp_path):
+    write_tree(tree() + lp_b_tree(), str(tmp_path))
+    write_tree([], str(tmp_path), platforms=[LP_B])
+    assert not (tmp_path / "logicalModels/lp_b").exists()
+    assert (tmp_path / "logicalModels/logical/platform.json").exists()
+
+
+MALFORMED = {
+    "physical_child_string": {"physicalChildren": ["urn:li:dataset:x"]},
+    "physical_child_without_urn": {"physicalChildren": [{}]},
+    "physical_child_fields_without_urn": {"physicalChildren": [{"urn": "urn:li:dataset:x", "fields": [{}]}]},
+    "nested_container_value": {"aspects": {"container": {"container": {"container": ["x"]}}}},
+}
+
+
+@pytest.mark.parametrize("shape", MALFORMED.values(), ids=MALFORMED.keys())
+def test_read_tree_isolates_malformed_shapes(tmp_path, shape):
+    write_tree(tree(), str(tmp_path))
+    bad = {"urn": f"urn:li:dataset:({P},bad,PROD)", "aspects": {}, **shape}
+    (tmp_path / "logicalModels/logical/bad.PROD.json").write_text(json.dumps(bad))
+    entities = read_tree(str(tmp_path))
+    invalid = [e for e in entities if "_load_error" in e]
+    assert {e["urn"] for e in invalid} == {"logical/bad.PROD.json"}
+    assert len(entities) - len(invalid) == len(tree())

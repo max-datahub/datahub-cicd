@@ -97,21 +97,33 @@ def plan_layout(entities: list[dict]) -> dict[str, Path]:
     return paths
 
 
-def write_tree(entities: list[dict], output_dir: str) -> None:
-    """Rewrite logicalModels/ from scratch so renamed/deleted entities leave nothing stale."""
+def write_tree(entities: list[dict], output_dir: str, platforms: list[str] | None = None) -> None:
+    """Rewrite the tree from scratch so renamed/deleted entities leave nothing stale.
+
+    `platforms` (platform URNs) scopes the rewrite to those platforms' folders,
+    so a scoped export never deletes other platforms' definitions. None rewrites
+    the whole logicalModels/ tree.
+    """
     root = Path(output_dir) / LOGICAL_MODELS_DIR
     paths = plan_layout(entities)
     unplaced = [e["urn"] for e in entities if e["urn"] not in paths]
     if unplaced:
         raise ValueError(f"No layout path for: {unplaced}")
-    if root.exists():
-        shutil.rmtree(root)
+    owned = [root] if platforms is None else [root / sanitize(_urn_id(p)) for p in platforms]
+    for folder in owned:
+        if folder.exists():
+            shutil.rmtree(folder)
     for e in entities:
         target = root / paths[e["urn"]]
         target.parent.mkdir(parents=True, exist_ok=True)
         body = {k: e[k] for k in _FILE_KEYS if k in e}
         target.write_text(json.dumps(body, indent=2, default=str) + "\n")
     logger.info(f"Wrote {len(entities)} logical model entities to {root}")
+
+
+def _check_has_urn(item: object, what: str) -> None:
+    if not isinstance(item, dict) or not isinstance(item.get("urn"), str):
+        raise ValueError(f"{what} must be an object with a string urn, got {item!r}")
 
 
 def read_tree(metadata_dir: str) -> list[dict]:
@@ -137,7 +149,16 @@ def read_tree(metadata_dir: str) -> list[dict]:
                 physical_children = body["physicalChildren"]
                 if not isinstance(physical_children, list):
                     raise ValueError(f"physicalChildren must be a list, got {physical_children!r}")
+                for child in physical_children:
+                    _check_has_urn(child, "physicalChildren item")
+                    fields = child.get("fields", [])
+                    if not isinstance(fields, list):
+                        raise ValueError(f"fields must be a list, got {fields!r}")
+                    for field in fields:
+                        _check_has_urn(field, "fields item")
                 entity["physicalChildren"] = physical_children
+            if "container" in aspects and not isinstance(aspects["container"].get("container"), str):
+                raise ValueError(f"container aspect needs a string container URN, got {aspects['container']!r}")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
             entities.append({"urn": str(rel), "entityType": "invalid", "_load_error": f"{rel}: {e}"})
             continue

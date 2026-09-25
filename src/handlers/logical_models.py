@@ -48,6 +48,27 @@ def _platform_urn(platform: str) -> str:
     return platform if platform.startswith("urn:li:dataPlatform:") else f"urn:li:dataPlatform:{platform}"
 
 
+def _cyclic_containers(entities: list[dict]) -> dict[str, list[str]]:
+    """Containers whose parent chain within the files loops, mapped to that chain.
+
+    Covers the loop members and any container hanging below a loop: neither can
+    be ordered parents-first. They fail; datasets under them then require the
+    parent on the target like any container missing from the files.
+    """
+    parents = {
+        e["urn"]: parent_container(e) for e in entities if e["entityType"] == "container" and "_load_error" not in e
+    }
+    cyclic: dict[str, list[str]] = {}
+    for urn in parents:
+        chain = [urn]
+        while (nxt := parents.get(chain[-1])) is not None and nxt in parents:
+            if nxt in chain:
+                cyclic[urn] = chain + [nxt]
+                break
+            chain.append(nxt)
+    return cyclic
+
+
 class LogicalModelHandler(EntityHandler):
     def __init__(self, platforms: list[str] | None = None) -> None:
         self.platforms = platforms
@@ -74,7 +95,10 @@ class LogicalModelHandler(EntityHandler):
         return entities
 
     def write_export(self, entities: list[dict], output_dir: str) -> None:
-        write_tree(entities, output_dir)
+        # Scoped export owns only the requested platforms' folders (logical or not:
+        # a non-logical platform owns a folder that never exists, so nothing is removed).
+        scope = [_platform_urn(p) for p in self.platforms] if self.platforms else None
+        write_tree(entities, output_dir, platforms=scope)
 
     def _logical_platforms(self, graph: DataHubGraph) -> list[str]:
         if self.platforms:
@@ -169,6 +193,13 @@ class LogicalModelHandler(EntityHandler):
     def read_export(self, metadata_dir: str) -> list[dict]:
         """Load logicalModels/ in write order: platforms, containers (parents first), datasets, links."""
         entities = read_tree(metadata_dir)
+        cyclic = _cyclic_containers(entities)
+        entities = [
+            {"urn": e["urn"], "entityType": "invalid", "_load_error": f"{e['urn']}: container cycle via {cyclic[e['urn']]}"}
+            if e["urn"] in cyclic
+            else e
+            for e in entities
+        ]
         invalid = [e for e in entities if "_load_error" in e]
         valid = [e for e in entities if "_load_error" not in e]
         known = {e["urn"] for e in valid}
