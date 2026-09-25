@@ -279,7 +279,7 @@ class TestDryRunSkipTracking:
         import subprocess
         import tempfile
 
-        from tests.integration.conftest import GMS_URL
+        from tests.integration.conftest import GMS_TOKEN, GMS_URL
 
         tmpdir = tempfile.mkdtemp(prefix="datahub-cicd-dryrun-")
         # Copy exported JSON to the temp dir
@@ -290,7 +290,7 @@ class TestDryRunSkipTracking:
         env = {
             **os.environ,
             "DATAHUB_PROD_URL": GMS_URL,
-            "DATAHUB_PROD_TOKEN": "",
+            "DATAHUB_PROD_TOKEN": GMS_TOKEN,
         }
         result = subprocess.run(
             [

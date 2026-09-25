@@ -486,7 +486,7 @@ def sync_round_trip_dir(seeded_graph, export_dir):
     env = {
         **os.environ,
         "DATAHUB_PROD_URL": GMS_URL,
-        "DATAHUB_PROD_TOKEN": "",
+        "DATAHUB_PROD_TOKEN": GMS_TOKEN,
     }
     result = subprocess.run(
         [
