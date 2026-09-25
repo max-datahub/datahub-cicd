@@ -16,7 +16,15 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
 )
 
+from src.handlers import create_default_registry
+from src.handlers.enrichment import DatasetEnrichmentHandler, GenericEnrichmentHandler
 from src.handlers.logical_models import LogicalModelHandler
+from src.interfaces import SKIP_TARGET_MISSING
+from src.logical_layout import write_tree
+from src.orchestrator import SyncOrchestrator
+from src.registry import HandlerRegistry
+from src.urn_mapper import PassthroughMapper
+from src.write_strategy import OverwriteStrategy
 
 P = "urn:li:dataPlatform:logical"
 ROOT = "urn:li:container:root"
@@ -137,3 +145,94 @@ def test_physical_children_exported_with_matching_column_links(graph, world):
     assert children[0]["logicalParent"]["parent"]["destinationUrn"] == MODEL
     assert [f["urn"] for f in children[0]["fields"]] == [sf]
     graph.get_related_entities.assert_any_call(MODEL, relationship_types=["PhysicalInstanceOf"], direction=RelationshipDirection.INCOMING)
+
+
+@pytest.fixture
+def exported_dir(graph, world, tmp_path):
+    world["related"][MODEL] = [CHILD]
+    world["logical_parent"][CHILD] = LogicalParentClass(parent=EdgeClass(destinationUrn=MODEL))
+    sf = make_schema_field_urn(CHILD, "invoice_id")
+    world["logical_parent"][sf] = LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(MODEL, "invoice_id")))
+    handler = LogicalModelHandler(platforms=["logical"])
+    handler.write_export(handler.export(graph), str(tmp_path))
+    return tmp_path
+
+
+def test_read_export_orders_for_sync(exported_dir):
+    loaded = LogicalModelHandler().read_export(str(exported_dir))
+    assert [e["urn"] for e in loaded] == [P, ROOT, SUB, MODEL, CHILD]
+    assert loaded[-1]["entityType"] == "physicalChild"
+
+
+def test_required_target_urn(exported_dir, passthrough_mapper):
+    handler = LogicalModelHandler()
+    loaded = by_urn(handler.read_export(str(exported_dir)))
+    assert handler.required_target_urn(loaded[P], passthrough_mapper) is None
+    assert handler.required_target_urn(loaded[MODEL], passthrough_mapper) is None  # SUB is in the files
+    assert handler.required_target_urn(loaded[CHILD], passthrough_mapper) == CHILD
+
+
+def test_model_whose_container_is_not_in_files_requires_it_on_target(tmp_path, passthrough_mapper):
+    write_tree(
+        [
+            {"urn": P, "entityType": "dataPlatform", "aspects": {"dataPlatformInfo": {"name": "logical", "type": "OTHERS", "datasetNameDelimiter": ".", "logical": True}}},
+            {"urn": MODEL, "entityType": "dataset", "aspects": {"container": {"container": SUB}}},
+        ],
+        str(tmp_path),
+    )
+    handler = LogicalModelHandler()
+    loaded = by_urn(handler.read_export(str(tmp_path)))
+    assert handler.required_target_urn(loaded[MODEL], passthrough_mapper) == SUB
+
+
+def test_build_mcps_rebuilds_typed_aspects(exported_dir, passthrough_mapper):
+    handler = LogicalModelHandler()
+    loaded = by_urn(handler.read_export(str(exported_dir)))
+    mcps = handler.build_mcps(loaded[MODEL], passthrough_mapper)
+    assert {type(m.aspect) for m in mcps} == {DatasetPropertiesClass, SchemaMetadataClass, ContainerClass}
+    assert {m.entityUrn for m in mcps} == {MODEL}
+    child_mcps = handler.build_mcps(loaded[CHILD], passthrough_mapper)
+    assert [m.entityUrn for m in child_mcps] == [CHILD, make_schema_field_urn(CHILD, "invoice_id")]
+    assert all(isinstance(m.aspect, LogicalParentClass) for m in child_mcps)
+
+
+def test_build_mcps_rejects_unknown_aspect(passthrough_mapper):
+    entity = {"urn": MODEL, "entityType": "dataset", "aspects": {"globalTags": {"tags": []}}}
+    with pytest.raises(ValueError, match="globalTags"):
+        LogicalModelHandler().build_mcps(entity, passthrough_mapper)
+
+
+def _sync(graph, metadata_dir):
+    registry = HandlerRegistry()
+    handler = LogicalModelHandler()
+    registry.register(handler)
+    orchestrator = SyncOrchestrator(registry=registry, urn_mapper=PassthroughMapper(), write_strategy=OverwriteStrategy())
+    return orchestrator.sync_all(graph, {"logicalModel": handler.read_export(str(metadata_dir))})
+
+
+def test_sync_emits_parents_first_and_skips_missing_children(mock_graph, exported_dir):
+    mock_graph.exists.side_effect = lambda urn: urn != CHILD
+    results = _sync(mock_graph, exported_dir)
+    emitted = [c.args[0].entityUrn for c in mock_graph.emit_mcp.call_args_list]
+    first = {u: emitted.index(u) for u in (P, ROOT, SUB, MODEL)}
+    assert first[P] < first[ROOT] < first[SUB] < first[MODEL]
+    assert CHILD not in emitted
+    assert any(r.urn == CHILD and r.skip_reason == SKIP_TARGET_MISSING for r in results)
+
+
+def test_invalid_file_fails_only_that_entity(mock_graph, exported_dir):
+    (exported_dir / "logicalModels/logical/broken.PROD.json").write_text("{nope")
+    results = _sync(mock_graph, exported_dir)
+    failed = [r for r in results if r.status == "failed"]
+    assert [r.urn for r in failed] == ["logical/broken.PROD.json"]
+    assert any(r.urn == MODEL and r.status == "success" for r in results)
+
+
+def test_default_registry_orders_logical_models_before_enrichment():
+    registry = create_default_registry(logical_platforms=["logical"])
+    registry.register(DatasetEnrichmentHandler())
+    registry.register(GenericEnrichmentHandler("container"))
+    order = [h.entity_type for h in registry.get_sync_order()]
+    assert order.index("logicalModel") < order.index("enrichment")
+    assert order.index("logicalModel") < order.index("containerEnrichment")
+    assert registry.get_handler("logicalModel").platforms == ["logical"]

@@ -164,7 +164,55 @@ class LogicalModelHandler(EntityHandler):
             children.append(child)
         return children
 
-    # ── sync (Task 6) ─────────────────────────────────────────────────────
+    # ── sync ──────────────────────────────────────────────────────────────
+
+    def read_export(self, metadata_dir: str) -> list[dict]:
+        """Load logicalModels/ in write order: platforms, containers (parents first), datasets, links."""
+        entities = read_tree(metadata_dir)
+        invalid = [e for e in entities if "_load_error" in e]
+        valid = [e for e in entities if "_load_error" not in e]
+        known = {e["urn"] for e in valid}
+        platforms = sorted((e for e in valid if e["entityType"] == "dataPlatform"), key=lambda e: e["urn"])
+        containers = topological_sort(
+            [{**e, "_parent": parent_container(e)} for e in sorted(valid, key=lambda e: e["urn"]) if e["entityType"] == "container"],
+            "_parent",
+        )
+        datasets = sorted((e for e in valid if e["entityType"] == "dataset"), key=lambda e: e["urn"])
+        other = [e for e in valid if e["entityType"] not in ("dataPlatform", "container", "dataset")]
+        for e in containers + datasets:
+            parent = parent_container(e)
+            if parent and parent not in known:
+                e["_requires"] = parent  # parent must already exist on the target
+        children = [
+            {**child, "entityType": PHYSICAL_CHILD, "_requires": child["urn"]}
+            for ds in datasets
+            for child in ds.get("physicalChildren", [])
+        ]
+        return invalid + other + platforms + containers + datasets + children
+
+    def required_target_urn(self, entity: dict, urn_mapper: UrnMapper) -> str | None:
+        required = entity.get("_requires")
+        return urn_mapper.map(required) if required else None
 
     def build_mcps(self, entity: dict, urn_mapper: UrnMapper) -> list[MetadataChangeProposalWrapper]:
-        raise NotImplementedError  # replaced in Task 6
+        if "_load_error" in entity:
+            raise ValueError(entity["_load_error"])
+        if entity["entityType"] == PHYSICAL_CHILD:
+            links = [(entity["urn"], entity["logicalParent"])] if "logicalParent" in entity else []
+            links += [(f["urn"], f["logicalParent"]) for f in entity.get("fields", [])]
+            return [
+                MetadataChangeProposalWrapper(entityUrn=urn_mapper.map(urn), aspect=LogicalParentClass.from_obj(obj))
+                for urn, obj in links
+            ]
+        classes = DEFINITION_ASPECTS.get(entity["entityType"])
+        if classes is None:
+            raise ValueError(f"Unsupported entity type under logicalModels/: {entity['urn']}")
+        by_name = {cls.ASPECT_NAME: cls for cls in classes}
+        unknown = sorted(set(entity["aspects"]) - set(by_name))
+        if unknown:
+            raise ValueError(f"{entity['urn']}: aspects not allowed for {entity['entityType']}: {unknown}")
+        # ponytail: URN references nested inside aspects (e.g. container) pass through unmapped, like the rest of the pipeline
+        return [
+            MetadataChangeProposalWrapper(entityUrn=urn_mapper.map(entity["urn"]), aspect=by_name[name].from_obj(obj))
+            for name, obj in entity["aspects"].items()
+        ]

@@ -44,6 +44,7 @@ class TestDatasetEnrichmentHandler:
         assert "glossaryNode" in deps
         assert "glossaryTerm" in deps
         assert "domain" in deps
+        assert "logicalModel" in deps
 
     def test_export_filters_by_governance_urns(self, handler, mock_graph):
         mock_graph.get_urns_by_filter.return_value = [
@@ -248,6 +249,7 @@ class TestGenericEnrichmentHandler:
         deps = chart_handler.dependencies
         assert "tag" in deps
         assert "domain" in deps
+        assert "logicalModel" in deps
 
     def test_export_chart_ownership(self, chart_handler, mock_graph):
         mock_graph.get_urns_by_filter.return_value = [

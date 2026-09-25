@@ -197,7 +197,7 @@ class DatasetEnrichmentHandler(EntityHandler):
 
     @property
     def dependencies(self) -> list[str]:
-        return ["tag", "glossaryNode", "glossaryTerm", "domain"]
+        return ["tag", "glossaryNode", "glossaryTerm", "domain", "logicalModel"]
 
     def export(self, graph: DataHubGraph) -> list[dict]:
         """Export tag/term/domain/ownership assignments on datasets + field-level metadata."""
@@ -357,7 +357,7 @@ class GenericEnrichmentHandler(EntityHandler):
 
     @property
     def dependencies(self) -> list[str]:
-        return ["tag", "glossaryNode", "glossaryTerm", "domain"]
+        return ["tag", "glossaryNode", "glossaryTerm", "domain", "logicalModel"]
 
     def export(self, graph: DataHubGraph) -> list[dict]:
         enriched = []
