@@ -220,6 +220,10 @@ class TestDatasetEnrichmentHandler:
         # tags + terms + domains + ownership + editableSchemaMetadata = 5
         assert len(mcps) == 5
 
+    def test_required_target_urn_is_the_dataset(self, handler, passthrough_mapper):
+        entity = {"dataset_urn": "urn:li:dataset:ds1"}
+        assert handler.required_target_urn(entity, passthrough_mapper) == "urn:li:dataset:ds1"
+
 
 class TestGenericEnrichmentHandler:
     @pytest.fixture
@@ -341,6 +345,10 @@ class TestGenericEnrichmentHandler:
 
         mcps = chart_handler.build_mcps(entity, mapper)
         assert mcps[0].aspect.owners[0].owner == "urn:li:corpuser:bob"
+
+    def test_required_target_urn_is_the_entity(self, chart_handler, passthrough_mapper):
+        entity = {"entity_urn": "urn:li:chart:(looker,c1)"}
+        assert chart_handler.required_target_urn(entity, passthrough_mapper) == "urn:li:chart:(looker,c1)"
 
 
 class TestDatasetEnrichmentScoped:

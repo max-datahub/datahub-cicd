@@ -6,12 +6,18 @@ import traceback
 from datahub.ingestion.graph.client import DataHubGraph
 
 from src.error_classification import classify_error
-from src.interfaces import SyncResult, UrnMapper, WriteStrategy
+from src.interfaces import SKIP_TARGET_MISSING, SyncResult, UrnMapper, WriteStrategy
 from src.registry import HandlerRegistry
 from src.reporting import write_run_state
+from src.retry import retry_transient
 from src.utils import write_json
 
 logger = logging.getLogger(__name__)
+
+
+@retry_transient(max_retries=3, base_delay=1.0)
+def _exists(graph: DataHubGraph, urn: str) -> bool:
+    return graph.exists(urn)
 
 
 def _progress_interval(total: int) -> int:
@@ -152,11 +158,30 @@ class SyncOrchestrator:
             t0 = time.monotonic()
             last_progress_time = t0
             for i, entity in enumerate(entities):
-                urn = entity.get("urn") or entity.get("dataset_urn", "unknown")
+                urn = (
+                    entity.get("urn")
+                    or entity.get("dataset_urn")
+                    or entity.get("entity_urn", "unknown")
+                )
                 try:
-                    mcps = handler.build_mcps(entity, self.urn_mapper)
-                    phase_results = self.write_strategy.emit(graph, mcps)
-                    self.results.extend(phase_results)
+                    required = handler.required_target_urn(entity, self.urn_mapper)
+                    if required and not _exists(graph, required):
+                        logger.warning(
+                            f"Skipping {handler.entity_type} {urn}: "
+                            f"{required} does not exist on target"
+                        )
+                        self.results.append(
+                            SyncResult(
+                                entity_type=handler.entity_type,
+                                urn=urn,
+                                status="skipped",
+                                skip_reason=SKIP_TARGET_MISSING,
+                            )
+                        )
+                    else:
+                        mcps = handler.build_mcps(entity, self.urn_mapper)
+                        phase_results = self.write_strategy.emit(graph, mcps)
+                        self.results.extend(phase_results)
                 except Exception as e:
                     logger.debug(
                         f"Failed to build MCPs for {handler.entity_type} "

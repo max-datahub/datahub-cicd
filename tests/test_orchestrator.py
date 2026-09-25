@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.interfaces import EntityHandler, SyncResult, UrnMapper
+from src.interfaces import EntityHandler, SyncResult, UrnMapper, SKIP_TARGET_MISSING
 from src.orchestrator import SyncOrchestrator, _progress_interval
 from src.registry import HandlerRegistry
 from src.urn_mapper import PassthroughMapper
@@ -219,3 +219,59 @@ class TestSyncOrchestrator:
         assert state["run_id"] == "test123"
         assert state["status"] == "in_progress"
         assert len(state["completed_phases"]) >= 1
+
+
+class RequiresHandler(StubHandler):
+    def required_target_urn(self, entity, urn_mapper):
+        return entity["urn"]
+
+    def build_mcps(self, entity, urn_mapper):
+        mcp = MagicMock()
+        mcp.entityType = "dataset"
+        mcp.entityUrn = entity["urn"]
+        mcp.aspectName = "globalTags"
+        return [mcp]
+
+
+class TestTargetExistenceGuard:
+    EXPORTS = {
+        "enrichment": [
+            {"urn": "urn:li:dataset:missing"},
+            {"urn": "urn:li:dataset:present"},
+        ]
+    }
+
+    def _sync(self, graph, strategy):
+        registry = HandlerRegistry()
+        registry.register(RequiresHandler("enrichment"))
+        orchestrator = SyncOrchestrator(
+            registry=registry,
+            urn_mapper=PassthroughMapper(),
+            write_strategy=strategy,
+        )
+        return orchestrator.sync_all(graph, self.EXPORTS)
+
+    def test_missing_target_is_skipped_and_not_emitted(self, mock_graph):
+        mock_graph.exists.side_effect = lambda urn: urn.endswith("present")
+        results = self._sync(mock_graph, OverwriteStrategy())
+        by_urn = {r.urn: r for r in results}
+        assert by_urn["urn:li:dataset:missing"].status == "skipped"
+        assert by_urn["urn:li:dataset:missing"].skip_reason == SKIP_TARGET_MISSING
+        assert by_urn["urn:li:dataset:present"].status == "success"
+        emitted = [c.args[0].entityUrn for c in mock_graph.emit_mcp.call_args_list]
+        assert emitted == ["urn:li:dataset:present"]
+
+    def test_dry_run_also_checks_existence(self, mock_graph):
+        mock_graph.exists.return_value = False
+        results = self._sync(mock_graph, DryRunStrategy())
+        assert {r.skip_reason for r in results} == {SKIP_TARGET_MISSING}
+
+    def test_handlers_without_requirement_never_call_exists(self, mock_graph):
+        registry = HandlerRegistry()
+        registry.register(StubHandler("tag"))
+        SyncOrchestrator(
+            registry=registry,
+            urn_mapper=PassthroughMapper(),
+            write_strategy=DryRunStrategy(),
+        ).sync_all(mock_graph, {"tag": [{"urn": "urn:li:tag:a"}]})
+        mock_graph.exists.assert_not_called()
