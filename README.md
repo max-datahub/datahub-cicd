@@ -210,6 +210,34 @@ Additional entity types (dataJob, notebook, ML entities) can be added to the `EN
 - Tags, terms, and domains are filtered to only include references to governance entities that were exported. This prevents syncing references to entities that don't exist in prod.
 - Ownership is **not** filtered -- owner URNs (corpuser/corpGroup) are identity-based and the same across environments (same SSO = same URN).
 
+### Logical Model Definitions
+
+The pipeline normally treats datasets and containers as technical metadata created by
+ingestion on every instance, so it only syncs enrichment onto them. **Logical models are the
+exception.** They are hand-authored datasets on a platform whose `dataPlatformInfo.logical` is
+`true` (DataHub Cloud v2.1+ / OSS v1.7+), and they exist on no source system.
+
+- **Always exported.** Every logical platform in `--platform` scope is exported in full:
+  platform, containers, datasets and physical-child links. With no `--platform`, every logical
+  platform is exported. `--domain`/`--env` do not narrow definitions. There is no flag.
+- **Only `logical == true` counts.** Pre-v2.1 conventions (platform names, subtypes) are not detected.
+- **Layout** (one pretty JSON file per entity):
+  `logicalModels/<platform>/platform.json`, `.../<container>/container.json` (nested per
+  sub-container), `.../<dataset-name>.<ENV>.json`.
+- **The JSON is authoritative.** A model's parent is its `container` aspect. Moving a file by
+  hand does not re-parent it (sync logs a warning); edit the aspect instead. Each export
+  regenerates the tree.
+- **Name clashes fail the export.** Two sibling containers or models whose names sanitize to
+  the same file/folder, case-insensitively (exports must be safe on case-insensitive
+  filesystems), abort the export; rename one in DataHub.
+- **Push to any instance.** Sync writes platforms → containers (parents first) → models →
+  links, then enrichment. A model whose container is neither in the files nor on the target,
+  and a physical child missing on the target, are skipped as `target_missing`.
+- **Links need matching URNs.** Physical children are matched by exact URN. A child whose URN
+  differs across environments (e.g. `DEV` vs `PROD`) is skipped, never mis-linked.
+- Every definition aspect is fully overwritten on sync. Deleting a model from git does not
+  delete it on the target.
+
 ## Usage
 
 ### Export governance + enrichment from dev
@@ -416,6 +444,7 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 4. **No manual edits in prod**. DataHub's UPSERT write semantics mean every sync fully replaces each aspect. If a prod admin adds a third owner to a dataset, the next sync overwrites the ownership aspect with dev's version, silently removing the prod-only owner. Provenance filtering (`--filter-by-source ui`) can limit exports to GraphQL-authored entities, excluding ingestion-created metadata (note: DataHub labels all GraphQL mutations as "ui", not just browser interactions).
 5. **Dev and prod DataHub APIs are accessible** from the CI/CD runner (network connectivity + auth token).
 6. **Entity counts are manageable** for in-memory processing. The SDK's scroll-based pagination handles arbitrarily large entity sets, but all exported data is held in memory. For very large deployments (100k+ datasets), streaming or chunked processing may be needed.
+7. **Datasets and containers are technical metadata created by ingestion -- except logical models.** The pipeline assumes datasets/containers exist independently on every instance and only syncs enrichment onto them. Datasets and containers on a platform with `dataPlatformInfo.logical == true` are the one exception: they are hand-authored and have no source system, so the pipeline exports and syncs their full definitions instead. See [Logical Model Definitions](#logical-model-definitions).
 
 ## Limitations
 
