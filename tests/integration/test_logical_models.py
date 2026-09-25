@@ -74,8 +74,16 @@ def first_export(lm_graph, tmp_path_factory) -> Path:
 def pushed_to_fresh_target(lm_graph, first_export) -> Path:
     for urn in (seed.LM_INVOICE, seed.LM_CUSTOMER, seed.LM_SUB, seed.LM_ROOT, seed.LM_PLATFORM, seed.LM_CHILD):
         lm_graph.hard_delete_entity(urn)
+    # schemaField URNs are distinct GMS entities; hard_delete_entity(LM_CHILD) does not
+    # cascade to them, and seed_logical_models wrote LogicalParentClass directly onto
+    # them, so they must be deleted explicitly to make the fresh-target precondition real.
+    for c in seed.LM_COLUMNS:
+        lm_graph.hard_delete_entity(make_schema_field_urn(seed.LM_CHILD, c))
     lm_graph.emit_mcp(seed.logical_child_schema_mcp())  # physical child re-ingested on the "new" instance, unlinked
     assert not lm_graph.exists(seed.LM_INVOICE)
+    assert lm_graph.get_aspect(seed.LM_CHILD, LogicalParentClass) is None
+    for c in seed.LM_COLUMNS:
+        assert lm_graph.get_aspect(make_schema_field_urn(seed.LM_CHILD, c), LogicalParentClass) is None
     _cli("src.cli.sync_cmd", "--metadata-dir", str(first_export))
     return first_export
 
@@ -120,5 +128,6 @@ class TestIdempotency:
     def test_reexport_is_byte_identical(self, lm_graph, pushed_to_fresh_target, tmp_path):
         _wait_indexed(lm_graph)
         _cli("src.cli.sync_cmd", "--metadata-dir", str(pushed_to_fresh_target))  # second push: no-op
+        _wait_indexed(lm_graph)
         _cli("src.cli.export_cmd", "--output-dir", str(tmp_path), *SCOPE)
         assert _tree_bytes(tmp_path) == _tree_bytes(pushed_to_fresh_target)
