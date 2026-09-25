@@ -161,6 +161,11 @@ The pipeline's safety relies on two assumptions documented in `README.md`:
 
 If either assumption is violated, duplicates and data loss can occur.
 
+Logical model definition aspects (`datasetProperties`, `schemaMetadata`, `container`,
+`containerProperties`, `dataPlatformInfo`, `logicalParent`, …) are fully UPSERTed from
+`logicalModels/`. The files are the source of truth, and UI edits on the target are
+overwritten on the next sync.
+
 ### When Things Go Wrong
 
 | Violation | Consequence | Detection | Mitigation |

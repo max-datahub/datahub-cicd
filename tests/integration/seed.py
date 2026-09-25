@@ -14,15 +14,18 @@ Includes edge-case entities for testing:
 
 import logging
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeAuditStampsClass,
     ChartInfoClass,
+    ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
     DataFlowInfoClass,
+    DataPlatformInfoClass,
     DataProductAssociationClass,
     DataProductPropertiesClass,
     DatasetPropertiesClass,
@@ -30,13 +33,20 @@ from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
+    EdgeClass,
     GlobalTagsClass,
     GlossaryNodeInfoClass,
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
+    LogicalParentClass,
+    OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
     TagAssociationClass,
     TagPropertiesClass,
 )
@@ -672,6 +682,53 @@ def seed_soft_deleted(graph: DataHubGraph) -> None:
     # Soft-delete the tag that was already assigned to a dataset
     graph.soft_delete_entity(TAG_ASSIGNED_THEN_DELETED)
     logger.info("Soft-deleted test entities created.")
+
+
+# ── Logical models (DataPlatformInfo.logical, OSS v1.7+) ──────────────────
+LM_PLATFORM = "urn:li:dataPlatform:cicd_it_logical"
+LM_ROOT = "urn:li:container:cicd-it-lm-root"
+LM_SUB = "urn:li:container:cicd-it-lm-sub"
+LM_INVOICE = f"urn:li:dataset:({LM_PLATFORM},invoice,PROD)"
+LM_CUSTOMER = f"urn:li:dataset:({LM_PLATFORM},customer,PROD)"
+LM_CHILD = "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.invoices,PROD)"
+LM_COLUMNS = ("invoice_id", "amount")
+
+
+def _lm_schema(platform: str, cols) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="s", platform=platform, version=0, hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[SchemaFieldClass(fieldPath=c, type=SchemaFieldDataTypeClass(StringTypeClass()), nativeDataType="string") for c in cols],
+    )
+
+
+def logical_child_schema_mcp() -> MetadataChangeProposalWrapper:
+    """The physical child as ingestion would create it: schema only, no links."""
+    return MetadataChangeProposalWrapper(entityUrn=LM_CHILD, aspect=_lm_schema("urn:li:dataPlatform:snowflake", LM_COLUMNS))
+
+
+def seed_logical_models(graph: DataHubGraph) -> None:
+    W = MetadataChangeProposalWrapper
+    mcps = [
+        W(entityUrn=LM_PLATFORM, aspect=DataPlatformInfoClass(name="cicd_it_logical", displayName="CICD IT Logical", type="OTHERS", datasetNameDelimiter=".", logical=True)),
+        W(entityUrn=LM_ROOT, aspect=ContainerPropertiesClass(name="CICD IT Root")),
+        W(entityUrn=LM_SUB, aspect=ContainerPropertiesClass(name="Billing")),
+        W(entityUrn=LM_SUB, aspect=ContainerClass(container=LM_ROOT)),
+        W(entityUrn=LM_INVOICE, aspect=DatasetPropertiesClass(name="invoice", description="Invoice model")),
+        W(entityUrn=LM_INVOICE, aspect=_lm_schema(LM_PLATFORM, LM_COLUMNS)),
+        W(entityUrn=LM_INVOICE, aspect=ContainerClass(container=LM_SUB)),
+        W(entityUrn=LM_INVOICE, aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=TAG_PII)])),
+        W(entityUrn=LM_CUSTOMER, aspect=DatasetPropertiesClass(name="customer")),
+        W(entityUrn=LM_CUSTOMER, aspect=_lm_schema(LM_PLATFORM, ("id", "email"))),
+        W(entityUrn=LM_CUSTOMER, aspect=ContainerClass(container=LM_ROOT)),
+        logical_child_schema_mcp(),
+        W(entityUrn=LM_CHILD, aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=LM_INVOICE))),
+    ]
+    mcps += [
+        W(entityUrn=make_schema_field_urn(LM_CHILD, c), aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(LM_INVOICE, c))))
+        for c in LM_COLUMNS
+    ]
+    _emit(graph, mcps)
 
 
 def seed_all(graph: DataHubGraph) -> None:

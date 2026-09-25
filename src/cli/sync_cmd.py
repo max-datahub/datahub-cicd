@@ -103,9 +103,7 @@ def main() -> None:
 
     registry = create_default_registry()
     for handler in registry.get_all_handlers():
-        filepath = os.path.join(metadata_dir, f"{handler.entity_type}.json")
-        entities = read_json(filepath)
-        exports[handler.entity_type] = entities
+        exports[handler.entity_type] = handler.read_export(metadata_dir)
 
     governance_urns = collect_governance_urns(exports)
     logger.info(

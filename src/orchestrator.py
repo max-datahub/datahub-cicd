@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 import traceback
 
@@ -16,7 +15,6 @@ from src.interfaces import (
 from src.registry import HandlerRegistry
 from src.reporting import write_run_state
 from src.retry import retry_transient
-from src.utils import write_json
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +105,7 @@ class SyncOrchestrator:
             entities = handler.export(graph)
             elapsed = time.monotonic() - t0
             exports[handler.entity_type] = entities
-            output_path = os.path.join(output_dir, f"{handler.entity_type}.json")
-            write_json(entities, output_path)
+            handler.write_export(entities, output_dir)
             logger.info(
                 f"Exported {len(entities)} {handler.entity_type} "
                 f"entities in {elapsed:.1f}s"
@@ -130,9 +127,8 @@ class SyncOrchestrator:
         entities: list[dict],
         output_dir: str,
     ) -> None:
-        """Write a single handler's entities to a JSON file."""
-        output_path = os.path.join(output_dir, f"{handler.entity_type}.json")
-        write_json(entities, output_path)
+        """Write a single handler's entities via the handler's own export format."""
+        handler.write_export(entities, output_dir)
 
     def sync_all(
         self, graph: DataHubGraph, exports: dict[str, list[dict]]
