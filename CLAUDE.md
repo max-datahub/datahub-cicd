@@ -133,7 +133,7 @@ Key modules:
 - **`RunContext`** (`src/run_context.py`): Tracks run ID, command, phase timing, and duration.
 - **Error classification** (`src/error_classification.py`): `classify_error(exc)` returns `(category, suggestion)` tuple. Handles DataHub SDK exceptions (HTTP status codes in attrs/messages), standard Python exceptions, and unknown errors.
 - **Retry** (`src/retry.py`): `@retry_transient` decorator with exponential backoff. Retries `ConnectionError`, `TimeoutError`, HTTP 429/502/503/504. Does NOT retry auth/validation/client errors. Applied to `OverwriteStrategy.emit()`, enrichment API calls, and `apply_deletions()`.
-- **Skip tracking**: `SyncResult.skip_reason` field with constants (`SKIP_DRY_RUN`, `SKIP_SYSTEM_ENTITY`, `SKIP_PROVENANCE_FILTER`, `SKIP_NO_ENRICHMENT`, etc.) in `src/interfaces.py`.
+- **Skip tracking**: `SyncResult.skip_reason` field with constants (`SKIP_DRY_RUN`, `SKIP_SYSTEM_ENTITY`, `SKIP_PROVENANCE_FILTER`, `SKIP_NO_ENRICHMENT`, `SKIP_TARGET_MISSING`, etc.) in `src/interfaces.py`. Enrichment for an entity that does not exist on the target is skipped (`target_missing`) instead of creating a stub; checked in dry-run too.
 - **Stack traces**: Full tracebacks at `logger.debug(exc_info=True)` (visible with `--log-level DEBUG`), clean one-line messages at `logger.error()`. Tracebacks also stored in `SyncResult.traceback` for the run report.
 
 ### Utilities (`src/utils.py`)
@@ -161,5 +161,5 @@ Key modules:
 - Unit tests use a `mock_graph` fixture (from `tests/conftest.py`) that stubs `DataHubGraph` methods.
 - Handler tests cover: export, build_mcps, system entity filtering, hierarchical ordering.
 - Observability unit tests cover: retry logic, error classification, TrackedGraph, run reports (JSON/Markdown), JSONL logging, incremental state.
-- Integration tests (`@pytest.mark.integration`) spin up a Docker DataHub instance with a 10000-port offset and seed test data via `tests/integration/seed.py`.
+- Integration tests (`@pytest.mark.integration`) spin up a Docker DataHub instance pinned to OSS `v1.7.0.1` (`DATAHUB_TEST_OSS_VERSION`) with a 10000-port offset and seed test data via `tests/integration/seed.py`. Point at an existing instance instead with `DATAHUB_TEST_GMS_URL` / `DATAHUB_TEST_GMS_TOKEN`.
 - Integration observability tests (`tests/integration/test_observability.py`) validate that JSONL logs, JSON/Markdown reports, `.run-state.json`, API stats, and skip tracking are produced correctly during real export/sync runs.

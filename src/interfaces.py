@@ -13,6 +13,7 @@ SKIP_SCOPE_FILTER = "scope_filter"
 SKIP_NO_ENRICHMENT = "no_enrichment"
 SKIP_GOVERNANCE_URN_FILTER = "governance_urn_filter"
 SKIP_DRY_RUN = "dry_run"
+SKIP_TARGET_MISSING = "target_missing"
 
 
 @dataclass
@@ -121,3 +122,15 @@ class EntityHandler(ABC):
     def validate(self, entities: list[dict]) -> list[str]:
         """Optional pre-sync validation. Returns list of error messages."""
         return []
+
+    def required_target_urn(
+        self, entity: dict, urn_mapper: UrnMapper
+    ) -> str | None:
+        """URN that must already exist on the target before this entity is written.
+
+        Upserting an aspect onto a non-existent URN makes DataHub create a stub
+        entity, so enrichment must not be written to entities the target lacks.
+        None means no precondition; a missing URN skips the entity with
+        SKIP_TARGET_MISSING.
+        """
+        return None

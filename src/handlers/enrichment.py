@@ -290,6 +290,9 @@ class DatasetEnrichmentHandler(EntityHandler):
         logger.info(f"Exported enrichment for {len(enriched)} datasets")
         return enriched
 
+    def required_target_urn(self, entity: dict, urn_mapper: UrnMapper) -> str | None:
+        return urn_mapper.map(entity["dataset_urn"])
+
     def build_mcps(
         self, entity: dict, urn_mapper: UrnMapper
     ) -> list[MetadataChangeProposalWrapper]:
@@ -417,6 +420,9 @@ class GenericEnrichmentHandler(EntityHandler):
             f"{self._datahub_entity_type} entities"
         )
         return enriched
+
+    def required_target_urn(self, entity: dict, urn_mapper: UrnMapper) -> str | None:
+        return urn_mapper.map(entity["entity_urn"])
 
     def build_mcps(
         self, entity: dict, urn_mapper: UrnMapper

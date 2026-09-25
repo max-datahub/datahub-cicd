@@ -9,11 +9,10 @@ description = "CI/CD pipeline for DataHub governance metadata"
 license = "Apache-2.0"
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "License :: OSI Approved :: Apache Software License",
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "acryl-datahub>=1.4.0",
+    "acryl-datahub>=1.7.0",
 ]
 
 [project.optional-dependencies]

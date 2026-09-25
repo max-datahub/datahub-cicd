@@ -450,6 +450,7 @@ These are inherent properties of DataHub's data model that affect any cross-envi
 | No pre-flight validation | Referenced URNs are not checked for existence in prod before writing | Dependency ordering prevents most issues; edge cases require manual verification |
 | No staging environment | No pre-production validation environment | Use `--dry-run` mode to preview MCPs |
 | Enrichment not version-controlled | Enrichment JSON files are point-in-time snapshots, not diffs | Re-export before each sync to capture latest state |
+| Enrichment target must pre-exist | Enrichment is only written to entities that already exist on the target; missing entities are reported as `target_missing` skips | Ensure the target entity is created (e.g., via ingestion) before syncing enrichment for it |
 
 ## Roadmap
 
@@ -540,7 +541,7 @@ pytest tests/ -v
 
 ### Integration tests
 
-Integration tests require Docker and start a full DataHub OSS instance via the official Docker Quickstart. All services use non-standard ports (10000 offset) to avoid collisions with local DataHub instances.
+Integration tests require Docker and start a full DataHub OSS instance, pinned to `v1.7.0.1` (override with `DATAHUB_TEST_OSS_VERSION`), via the official Docker Quickstart. All services use non-standard ports (10000 offset) to avoid collisions with local DataHub instances. To run against an existing instance instead of starting Docker, set `DATAHUB_TEST_GMS_URL` (and `DATAHUB_TEST_GMS_TOKEN` if it requires auth).
 
 | Service | Standard Port | Integration Port |
 |---|---|---|
@@ -555,6 +556,10 @@ Integration tests require Docker and start a full DataHub OSS instance via the o
 ```bash
 # Run integration tests (starts Docker, seeds entities, exports, validates)
 pytest -m integration tests/integration/ -v
+
+# Against an existing instance
+DATAHUB_TEST_GMS_URL=http://localhost:8080 DATAHUB_TEST_GMS_TOKEN=<token> \
+    pytest -m integration tests/integration/ -v
 
 # With custom GMS timeout (default 180s)
 INTEGRATION_GMS_TIMEOUT=300 pytest -m integration tests/integration/ -v

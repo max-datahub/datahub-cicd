@@ -104,6 +104,9 @@ class TrackedGraph:
         "emit_mcps",
         "get_entity_as_mcps",
         "soft_delete_entity",
+        "exists",
+        "get_entity_semityped",
+        "get_related_entities",
     }
 
     def __init__(self, graph: DataHubGraph) -> None:

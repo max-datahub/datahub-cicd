@@ -46,6 +46,17 @@ class TestTrackedGraph:
         assert tracked.call_counts["emit_mcp"] == 1
         mock_graph.emit_mcp.assert_called_once_with("some_mcp")
 
+    def test_existence_and_relationship_reads_tracked(self):
+        tracked = TrackedGraph(MagicMock())
+
+        tracked.exists("urn:li:dataset:test")
+        tracked.get_entity_semityped("urn:li:dataset:test")
+        tracked.get_related_entities("urn:li:dataset:test", ["IsPartOf"], "INCOMING")
+
+        assert tracked.call_counts["exists"] == 1
+        assert tracked.call_counts["get_entity_semityped"] == 1
+        assert tracked.call_counts["get_related_entities"] == 1
+
     def test_get_stats(self):
         mock_graph = MagicMock()
         mock_graph.get_tags.return_value = None
