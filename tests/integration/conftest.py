@@ -3,12 +3,16 @@
 Two modes of operation:
 
 1. **Against existing instance** (fast, no Docker required):
-   DATAHUB_TEST_GMS_URL=http://localhost:8080 pytest -m integration tests/integration/ -v
+   DATAHUB_TEST_GMS_URL=http://localhost:8080 DATAHUB_TEST_GMS_TOKEN=<token> \\
+       pytest -m integration tests/integration/ -v
 
 2. **With Docker Quickstart** (full lifecycle, CI/CD):
    pytest -m integration tests/integration/ -v
-   This downloads the official quickstart, starts services on non-standard
-   ports (18080 scheme), seeds, tests, and tears down.
+   This downloads the pinned DataHub OSS quickstart (DATAHUB_OSS_VERSION,
+   default v1.7.0.1) using the profile compose file, overridden to publish
+   only the GMS and frontend ports so it doesn't collide with any quickstart
+   already running locally. Starts services on non-standard ports (18080
+   scheme), seeds, tests, and tears down.
 
 Run with:  pytest -m integration tests/integration/ -v -s
 Skip with: pytest -m "not integration" tests/
@@ -51,14 +55,34 @@ GMS_PORT = PORTS["DATAHUB_MAPPED_GMS_PORT"]
 DOCKER_GMS_URL = f"http://localhost:{GMS_PORT}"
 GMS_URL = EXTERNAL_GMS_URL or DOCKER_GMS_URL
 
+GMS_TOKEN = os.environ.get("DATAHUB_TEST_GMS_TOKEN", "")
+
 # Docker Compose project name (separate from any user quickstart)
 PROJECT_NAME = "datahub-cicd-integration"
 
-# Official quickstart compose file (no Neo4j variant)
+# Pinned DataHub OSS release. v1.7.0.1 is the first stable line with
+# DataPlatformInfo.logical (logical models); bump deliberately.
+DATAHUB_OSS_VERSION = os.environ.get("DATAHUB_TEST_OSS_VERSION", "v1.7.0.1")
+
 COMPOSE_URL = (
     "https://raw.githubusercontent.com/datahub-project/datahub/"
-    "master/docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
+    f"{DATAHUB_OSS_VERSION}/docker/quickstart/docker-compose.quickstart-profile.yml"
 )
+
+# The profile compose publishes kafka/mysql/opensearch/OTLP on fixed host ports,
+# which collide with any quickstart already running locally. Tests only need GMS.
+COMPOSE_OVERRIDE = """\
+services:
+  datahub-gms-quickstart:
+    ports: !override
+      - "${DATAHUB_MAPPED_GMS_PORT}:8080"
+  kafka-broker:
+    ports: !reset []
+  mysql:
+    ports: !reset []
+  opensearch:
+    ports: !reset []
+"""
 
 # Timeouts
 PULL_TIMEOUT_SECONDS = int(os.environ.get("INTEGRATION_PULL_TIMEOUT", "600"))
@@ -68,20 +92,30 @@ GMS_POLL_INTERVAL = 5
 
 
 def _compose_env() -> dict:
-    return {**os.environ, **PORTS}
+    return {**os.environ, **PORTS, "DATAHUB_VERSION": DATAHUB_OSS_VERSION}
+
+
+def _override_path(compose_file: str) -> str:
+    return os.path.join(os.path.dirname(compose_file), "docker-compose.override.yml")
 
 
 def _compose_cmd(compose_file: str) -> list[str]:
-    return ["docker", "compose", "-f", compose_file, "-p", PROJECT_NAME]
+    return [
+        "docker", "compose",
+        "-f", compose_file, "-f", _override_path(compose_file),
+        "-p", PROJECT_NAME, "--profile", "quickstart",
+    ]
 
 
 def _download_compose_file(target_dir: str) -> str:
     compose_path = os.path.join(target_dir, "docker-compose.yml")
-    logger.info(f"Downloading quickstart compose file to {compose_path}")
+    logger.info(f"Downloading {DATAHUB_OSS_VERSION} quickstart compose to {compose_path}")
     resp = requests.get(COMPOSE_URL, timeout=30)
     resp.raise_for_status()
     with open(compose_path, "w") as f:
         f.write(resp.text)
+    with open(_override_path(compose_path), "w") as f:
+        f.write(COMPOSE_OVERRIDE)
     return compose_path
 
 
@@ -158,7 +192,7 @@ def _wait_for_gms(gms_url: str) -> None:
 
 
 def _get_graph(gms_url: str) -> DataHubGraph:
-    config = DatahubClientConfig(server=gms_url, token=None)
+    config = DatahubClientConfig(server=gms_url, token=GMS_TOKEN or None)
     return DataHubGraph(config)
 
 
@@ -260,7 +294,7 @@ def export_dir(seeded_graph):
     env = {
         **os.environ,
         "DATAHUB_DEV_URL": GMS_URL,
-        "DATAHUB_DEV_TOKEN": "",
+        "DATAHUB_DEV_TOKEN": GMS_TOKEN,
     }
     result = subprocess.run(
         ["python", "-m", "src.cli.export_cmd", "--output-dir", tmpdir],
@@ -286,7 +320,7 @@ def export_dir_with_deletions(seeded_graph):
     env = {
         **os.environ,
         "DATAHUB_DEV_URL": GMS_URL,
-        "DATAHUB_DEV_TOKEN": "",
+        "DATAHUB_DEV_TOKEN": GMS_TOKEN,
     }
     result = subprocess.run(
         [
@@ -320,7 +354,7 @@ def _run_scoped_export(
     env = {
         **os.environ,
         "DATAHUB_DEV_URL": GMS_URL,
-        "DATAHUB_DEV_TOKEN": "",
+        "DATAHUB_DEV_TOKEN": GMS_TOKEN,
     }
     cmd = ["python", "-m", "src.cli.export_cmd", "--output-dir", tmpdir] + extra_args
     result = subprocess.run(
