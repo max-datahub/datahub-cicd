@@ -70,7 +70,10 @@ def plan_layout(entities: list[dict]) -> dict[str, Path]:
         return base / sanitize(name)
 
     paths: dict[str, Path] = {}
-    owner: dict[Path, str] = {}
+    # Keyed by casefold(str(path)): exports land on macOS, whose default filesystem
+    # is case-insensitive, so "Billing" and "billing" would otherwise silently
+    # overwrite each other on disk even though this check passed.
+    owner: dict[str, str] = {}
     for e in entities:
         urn, kind = e["urn"], e["entityType"]
         if kind == "dataPlatform":
@@ -86,9 +89,10 @@ def plan_layout(entities: list[dict]) -> dict[str, Path]:
             path = base / f"{sanitize(key.name)}.{key.env}.json"
         else:
             continue
-        if path in owner:
-            raise ValueError(f"Layout collision at {path}: {owner[path]} and {urn}; rename one of them")
-        owner[path] = urn
+        collision_key = str(path).casefold()
+        if collision_key in owner:
+            raise ValueError(f"Layout collision at {path}: {owner[collision_key]} and {urn}; rename one of them")
+        owner[collision_key] = urn
         paths[urn] = path
     return paths
 
@@ -122,9 +126,18 @@ def read_tree(metadata_dir: str) -> list[dict]:
         try:
             body = json.loads(f.read_text())
             urn = body["urn"]
-            entity = {"urn": urn, "entityType": urn.split(":")[2], "aspects": body.get("aspects", {})}
+            aspects = body.get("aspects", {})
+            if not isinstance(aspects, dict) or not all(isinstance(v, dict) for v in aspects.values()):
+                # A malformed aspect (e.g. "container" as a string instead of a dict)
+                # would otherwise blow up parent_container() deep inside plan_layout,
+                # crashing the whole read_tree() call instead of isolating this file.
+                raise ValueError(f"aspects must be a dict of dicts, got {aspects!r}")
+            entity = {"urn": urn, "entityType": urn.split(":")[2], "aspects": aspects}
             if "physicalChildren" in body:
-                entity["physicalChildren"] = body["physicalChildren"]
+                physical_children = body["physicalChildren"]
+                if not isinstance(physical_children, list):
+                    raise ValueError(f"physicalChildren must be a list, got {physical_children!r}")
+                entity["physicalChildren"] = physical_children
         except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
             entities.append({"urn": str(rel), "entityType": "invalid", "_load_error": f"{rel}: {e}"})
             continue

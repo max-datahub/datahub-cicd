@@ -76,6 +76,23 @@ def test_sanitized_dataset_name_collision_raises():
         plan_layout([platform(), dataset("a/b"), dataset("a_b")])
 
 
+def test_sibling_container_name_case_only_collision_raises():
+    # Exports run on macOS, whose default filesystem is case-insensitive: "Billing"
+    # and "billing" would land on the same path on disk even though they differ
+    # in a case-sensitive string comparison.
+    entities = [
+        platform(),
+        container(ROOT, "root"),
+        container("urn:li:container:b1", "Billing", ROOT),
+        container("urn:li:container:b2", "billing", ROOT),
+        dataset("x", "urn:li:container:b1"),
+        dataset("y", "urn:li:container:b2"),
+    ]
+    with pytest.raises(ValueError, match="urn:li:container:b1") as exc:
+        plan_layout(entities)
+    assert "urn:li:container:b2" in str(exc.value)
+
+
 def test_write_then_read_round_trips(tmp_path):
     write_tree(tree(), str(tmp_path))
     loaded = {e["urn"]: e for e in read_tree(str(tmp_path))}
@@ -112,6 +129,16 @@ def test_read_tree_marks_invalid_files(tmp_path):
     entities = read_tree(str(tmp_path))
     invalid = [e for e in entities if "_load_error" in e]
     assert {e["urn"] for e in invalid} == {"logical/broken.PROD.json", "logical/list.PROD.json"}
+    assert len(entities) - len(invalid) == len(tree())
+
+
+def test_read_tree_isolates_file_with_malformed_aspects(tmp_path):
+    write_tree(tree(), str(tmp_path))
+    bad = {"urn": f"urn:li:dataset:({P},bad,PROD)", "aspects": "oops"}
+    (tmp_path / "logicalModels/logical/bad.PROD.json").write_text(json.dumps(bad))
+    entities = read_tree(str(tmp_path))
+    invalid = [e for e in entities if "_load_error" in e]
+    assert {e["urn"] for e in invalid} == {"logical/bad.PROD.json"}
     assert len(entities) - len(invalid) == len(tree())
 
 
