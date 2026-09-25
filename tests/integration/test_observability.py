@@ -339,9 +339,11 @@ class TestDryRunSkipTracking:
         assert "Skipped Entities" in content
         assert "dry_run" in content
 
-    def test_dry_run_zero_api_calls(self, dry_run_dir):
+    def test_dry_run_zero_write_calls(self, dry_run_dir):
+        # Dry run may read the target (the existence guard calls exists()),
+        # but must never write to it.
         report = _load_json(os.path.join(dry_run_dir, "run-report.json"))
-        stats = report.get("api_stats", {})
-        assert stats.get("total_calls", 0) == 0, (
-            "Dry run should make 0 API calls to prod"
-        )
+        by_method = report.get("api_stats", {}).get("by_method", {})
+        writes = {m: by_method[m] for m in ("emit_mcp", "emit_mcps", "soft_delete_entity") if m in by_method}
+        assert writes == {}, f"Dry run should make 0 write calls to prod, got {writes}"
+        assert set(by_method) <= {"exists"}, f"Unexpected dry-run API calls: {sorted(by_method)}"
