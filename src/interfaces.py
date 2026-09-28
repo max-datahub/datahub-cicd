@@ -1,9 +1,12 @@
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
+
+from src.utils import read_json, write_json
 
 
 # Skip reason constants for structured skip tracking (Amendment 4)
@@ -134,3 +137,11 @@ class EntityHandler(ABC):
         SKIP_TARGET_MISSING.
         """
         return None
+
+    def write_export(self, entities: list[dict], output_dir: str) -> None:
+        """Persist exported entities. Default: one <entity_type>.json file."""
+        write_json(entities, os.path.join(output_dir, f"{self.entity_type}.json"))
+
+    def read_export(self, metadata_dir: str) -> list[dict]:
+        """Load entities written by write_export()."""
+        return read_json(os.path.join(metadata_dir, f"{self.entity_type}.json"))

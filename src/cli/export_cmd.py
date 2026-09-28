@@ -75,7 +75,10 @@ def main() -> None:
         "--platform",
         action="append",
         dest="platforms",
-        help="Filter enrichment to entities on this platform (repeatable)",
+        help=(
+            "Filter enrichment to entities on this platform (repeatable). "
+            "Logical platforms in scope also export full model definitions."
+        ),
     )
     parser.add_argument(
         "--env",
@@ -105,7 +108,11 @@ def main() -> None:
     dev_graph_raw = get_dev_graph()
     dev_graph = TrackedGraph(dev_graph_raw)
 
-    registry = create_default_registry()
+    scope = ScopeConfig.from_cli_args(args)
+    if scope.is_scoped:
+        logger.info(f"Enrichment scope: {scope}")
+
+    registry = create_default_registry(logical_platforms=scope.platforms)
     orchestrator = SyncOrchestrator(
         registry=registry,
         urn_mapper=PassthroughMapper(),
@@ -156,10 +163,6 @@ def main() -> None:
             f"Exporting enrichment (filtering by {len(governance_urns)} "
             f"governance URNs)..."
         )
-
-        scope = ScopeConfig.from_cli_args(args)
-        if scope.is_scoped:
-            logger.info(f"Enrichment scope: {scope}")
 
         # Dataset enrichment (includes editableSchemaMetadata)
         ds_handler = DatasetEnrichmentHandler(

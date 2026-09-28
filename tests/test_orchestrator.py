@@ -322,3 +322,31 @@ class TestGuardTrustsEarlierWrites:
         results = self._sync(mock_graph, OverwriteStrategy())
         assert results[-1].skip_reason == SKIP_TARGET_MISSING
         mock_graph.exists.assert_called_once_with(self.URN)
+
+
+class TestHandlerExportHooks:
+    def test_default_write_then_read_round_trips(self, tmp_path):
+        handler = StubHandler("tag")
+        handler.write_export([{"urn": "urn:li:tag:a"}], str(tmp_path))
+        assert (tmp_path / "tag.json").exists()
+        assert handler.read_export(str(tmp_path)) == [{"urn": "urn:li:tag:a"}]
+
+    def test_export_all_delegates_to_write_export(self, mock_graph, tmp_path):
+        written = {}
+
+        class TreeHandler(StubHandler):
+            def export(self, graph):
+                return [{"urn": "x"}]
+
+            def write_export(self, entities, output_dir):
+                written["args"] = (entities, output_dir)
+
+        registry = HandlerRegistry()
+        registry.register(TreeHandler("logicalModel"))
+        SyncOrchestrator(
+            registry=registry,
+            urn_mapper=PassthroughMapper(),
+            write_strategy=DryRunStrategy(),
+        ).export_all(mock_graph, str(tmp_path))
+        assert written["args"] == ([{"urn": "x"}], str(tmp_path))
+        assert not (tmp_path / "logicalModel.json").exists()

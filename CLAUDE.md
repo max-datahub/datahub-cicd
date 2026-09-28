@@ -66,8 +66,8 @@ python -m src.cli.sync_cmd --metadata-dir metadata/ --apply-deletions
 
 ### Execution Flow
 
-1. **Export**: Registry resolves handler dependency order → each handler calls `export(graph)` → results written to JSON in `metadata/` → governance URNs collected → enrichment handlers export tag/term/domain/ownership assignments filtered to those URNs.
-2. **Sync**: JSON files loaded → handlers process entities in dependency order → `build_mcps()` creates MetadataChangeProposalWrappers → `WriteStrategy.emit()` sends to target DataHub.
+1. **Export**: Registry resolves handler dependency order → each handler calls `export(graph)` → results written via `write_export()` (JSON in `metadata/` by default; `LogicalModelHandler` overrides this to write a `logicalModels/` folder tree instead) → governance URNs collected → enrichment handlers export tag/term/domain/ownership assignments filtered to those URNs.
+2. **Sync**: entities loaded via `read_export()` (default: the handler's JSON file) → handlers process entities in dependency order → `build_mcps()` creates MetadataChangeProposalWrappers → `WriteStrategy.emit()` sends to target DataHub. Handlers may override `write_export()`/`read_export()` for a non-default on-disk layout.
 
 ### Key Abstractions (`src/interfaces.py`)
 
@@ -89,8 +89,9 @@ python -m src.cli.sync_cmd --metadata-dir metadata/ --apply-deletions
 | `GlossaryTermHandler` | `glossaryTerm` | `glossaryNode` | Topological sort, parent node refs |
 | `DomainHandler` | `domain` | none | Topological sort for nested domains |
 | `DataProductHandler` | `dataProduct` | `domain` | Asset URN mapping |
-| `DatasetEnrichmentHandler` | `enrichment` | none | Tags, terms, domains, ownership, field-level schema |
-| `GenericEnrichmentHandler` | varies | none | Reusable for chart/dashboard/container/dataFlow/dataProduct enrichment |
+| `DatasetEnrichmentHandler` | `enrichment` | `tag`, `glossaryNode`, `glossaryTerm`, `domain`, `logicalModel` | Tags, terms, domains, ownership, field-level schema |
+| `GenericEnrichmentHandler` | varies | `tag`, `glossaryNode`, `glossaryTerm`, `domain`, `logicalModel` | Reusable for chart/dashboard/container/dataFlow/dataProduct enrichment |
+| `LogicalModelHandler` | `logicalModel` | none | Logical platforms in scope always exported in full as a folder tree (`logicalModels/`); links skipped when child missing |
 
 ### Enrichment Scoping (`src/scope.py`)
 
@@ -148,13 +149,15 @@ Key modules:
 - **URN passthrough**: Dev and prod URNs are assumed identical (same UUIDs, same ingestion topology). This is fundamental to the current sync model.
 - **Per-entity error tracking**: A single entity failure doesn't abort the batch. Results accumulate and are summarized at the end.
 - **Governance URN filtering**: Enrichment handlers only sync assignments that reference governance entities being managed (tags, terms, domains), preventing references to entities that don't exist in prod.
+- **Logical models are authored, not ingested**: datasets/containers on `logical == true` platforms (v2.1+/OSS v1.7+ only) are exported as definitions; the JSON `container` aspect, not the folder, is authoritative.
 
 ## Adding a New Entity Type
 
 1. Subclass `EntityHandler` in `src/handlers/`.
 2. Implement `export()`, `build_mcps()`, set `entity_type` and `dependencies`.
-3. Register in `HandlerRegistry` (in the CLI commands).
-4. Add unit tests in `tests/test_handlers/`.
+3. Optionally override `write_export()`/`read_export()` (non-default on-disk layout) or `required_target_urn()` (skip the entity as `target_missing` when a dependency URN is absent on the target).
+4. Register in `HandlerRegistry` (in the CLI commands).
+5. Add unit tests in `tests/test_handlers/`.
 
 ## Testing Patterns
 

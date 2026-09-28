@@ -18,8 +18,10 @@ Run with:  pytest -m integration tests/integration/ -v -s
 Skip with: pytest -m "not integration" tests/
 """
 
+import base64
 import logging
 import os
+import secrets
 import shutil
 import subprocess
 import tempfile
@@ -91,8 +93,22 @@ GMS_TIMEOUT_SECONDS = int(os.environ.get("INTEGRATION_GMS_TIMEOUT", "180"))
 GMS_POLL_INTERVAL = 5
 
 
+# Since OSS #16385 the quickstart compose has no default token-service secrets
+# (the `datahub docker quickstart` CLI generates them), and system-update exits 1
+# when they are empty. Generate throwaway ones per session the same way.
+TOKEN_SERVICE_SECRETS = {
+    key: os.environ.get(key) or base64.b64encode(secrets.token_bytes(32)).decode()
+    for key in ("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", "DATAHUB_TOKEN_SERVICE_SALT")
+}
+
+
 def _compose_env() -> dict:
-    return {**os.environ, **PORTS, "DATAHUB_VERSION": DATAHUB_OSS_VERSION}
+    return {
+        **os.environ,
+        **PORTS,
+        **TOKEN_SERVICE_SECRETS,
+        "DATAHUB_VERSION": DATAHUB_OSS_VERSION,
+    }
 
 
 def _override_path(compose_file: str) -> str:
@@ -133,6 +149,13 @@ def _run_compose(
     )
     if result.returncode != 0:
         logger.error(f"stderr: {result.stderr[-1000:]}")
+        # A failed one-shot job (e.g. system-update) only reports "exit 1" here;
+        # its own logs hold the reason.
+        logs = subprocess.run(
+            _compose_cmd(compose_file) + ["logs", "--tail", "100"],
+            env=_compose_env(), capture_output=True, text=True, timeout=60,
+        )
+        logger.error(f"container logs:\n{logs.stdout[-8000:]}")
         raise RuntimeError(
             f"docker compose {args[0]} failed (rc={result.returncode})"
         )
