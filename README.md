@@ -1,6 +1,6 @@
 # datahub-cicd
 
-> **Alpha** — This project is under active development. There is no stable release yet. APIs and behavior may change.
+> **Alpha** — This project is under active development. Pre-1.0 versions are published on the [Releases](https://github.com/max-datahub/datahub-cicd/releases) page; APIs and behavior may change between them.
 
 CI/CD pipeline for syncing DataHub governance metadata (tags, glossary, domains, data products) and enrichment (tag/term/domain/ownership assignments on datasets, charts, dashboards, containers, and more) from dev to prod.
 
@@ -427,13 +427,14 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 | Governance export | 1 HTTP call per entity (aspect read) | ~0.05s per entity | 43 entities = ~0.6s |
 | Dataset enrichment | 5 HTTP calls per dataset (tags, terms, domain, ownership, ESM) | ~0.05s per dataset | 146 datasets = ~7s |
 | Non-dataset enrichment | 4 HTTP calls per entity (tags, terms, domain, ownership) | ~0.04s per entity | 43 entities (chart+dashboard+container+dataFlow+dataProduct) = ~1.7s |
+| Logical model export | 1 `batchGet` per 100 column links, 8 models fetched in parallel | ~0.25s per model | 585 models / 46,502 column links = ~2.3 min |
 | Sync (write) | 1 HTTP call per MCP | ~0.02s per MCP | Sequential per-entity emission |
 | **Full export** | | **~8s total** | 226 entities across 11 types |
 
 ### Extension Points for Future Optimization
 
 **Batch reads during export** (`EntityHandler.export()`):
-- Current: `graph.get_aspect(urn, AspectClass)` per entity (1 HTTP call each)
+- Current: `graph.get_aspect(urn, AspectClass)` per entity (1 HTTP call each); logical model export already batches column links via `get_entities`
 - Future: `graph.get_entities(entity_name, urns, aspects)` fetches multiple entities' aspects in a single call
 - Impact: Reduces enrichment export from 4N HTTP calls to ~4 batch calls
 
@@ -495,6 +496,7 @@ These are inherent properties of DataHub's data model that affect any cross-envi
 | No pre-flight validation | Referenced URNs are not checked for existence in prod before writing | Dependency ordering prevents most issues; edge cases require manual verification |
 | No staging environment | No pre-production validation environment | Use `--dry-run` mode to preview MCPs |
 | Enrichment not version-controlled | Enrichment JSON files are point-in-time snapshots, not diffs | Re-export before each sync to capture latest state |
+| Logical model discovery uses search | Logical models (and, without `--platform`, logical platforms) are found via the search index, so ones created seconds before export may be missed | Export after indexing catches up; `--platform <name>` reads the platform directly instead of searching for it |
 | Enrichment target must pre-exist | Enrichment is only written to entities that already exist on the target; missing entities are reported as `target_missing` skips | Ensure the target entity is created (e.g., via ingestion) before syncing enrichment for it |
 
 ## Roadmap
@@ -608,7 +610,15 @@ DATAHUB_TEST_GMS_URL=http://localhost:8080 DATAHUB_TEST_GMS_TOKEN=<token> \
 
 # With custom GMS timeout (default 180s)
 INTEGRATION_GMS_TIMEOUT=300 pytest -m integration tests/integration/ -v
+
+# Slow machine: allow longer for `docker compose up` (default 120s)
+INTEGRATION_UP_TIMEOUT=600 pytest -m integration tests/integration/ -v
+
+# Regenerate logical model golden files after an intended export-format change
+UPDATE_GOLDEN=1 pytest -m integration tests/integration/test_logical_models.py
 ```
+
+The quickstart needs several GB of Docker memory. If GMS never becomes healthy, stop other local DataHub stacks first.
 
 The integration test suite:
 1. Downloads the official DataHub quickstart `docker-compose.yml`
@@ -617,6 +627,7 @@ The integration test suite:
    - Governance: tags (incl. system tag for filtering), glossary nodes (nested), glossary terms (with parents, incl. null-name and URN-in-termSource quirks), domains (nested), data products (with assets)
    - Data assets: datasets (postgres/PROD + snowflake/PROD for multi-platform), charts (looker), dashboards (looker), containers, dataflows
    - Enrichment: tags, terms, domains, ownership on all asset types + field-level tags/terms on datasets
+   - Logical models: a logical platform with nested containers, models with and without physical children, a 120-column child (column links span two batch requests), and a cross-model column link that must not export
    - Edge cases: mixed governance/non-governance tag assignments, tags assigned then soft-deleted, empty aspect lists (tags=[], owners=[])
 4. Runs the export CLI and validates JSON output against expected entities:
    - **Unscoped export**: full export of all entity types
@@ -630,4 +641,5 @@ The integration test suite:
    - **Data model quirks**: glossary term with null name (derived from URN), URN in termSource (passthrough)
    - **Empty aspects**: entities with empty tag/owner lists produce no enrichment
    - **Export-then-sync round-trip**: full pipeline end-to-end, verifying entities readable via graph API after sync
+   - **Logical models**: exported `logicalModels/` tree matches the golden files in `tests/integration/golden/`, pushes to a fresh target with links restored, re-exports byte-identically, and `--logical-models-only` skips data products and non-logical enrichment
 5. Tears down all containers on completion
