@@ -182,16 +182,18 @@ class LogicalModelHandler(EntityHandler):
     def _physical_children(self, graph: DataHubGraph, model_urn: str) -> list[dict]:
         """logicalParent edges stored on physical datasets and their schemaFields."""
         field_prefix = f"urn:li:schemaField:({model_urn},"
+        retry = retry_transient(max_retries=3, base_delay=1.0)
+        get_aspect = retry(graph.get_aspect)
         children = []
-        related = graph.get_related_entities(
+        related = retry(graph.get_related_entities)(
             model_urn, relationship_types=["PhysicalInstanceOf"], direction=RelationshipDirection.INCOMING
         )
         for child_urn in sorted({r.urn for r in related if r.urn.startswith("urn:li:dataset:")}):
             child: dict = {"urn": child_urn}
-            parent = graph.get_aspect(child_urn, LogicalParentClass)
+            parent = get_aspect(child_urn, LogicalParentClass)
             if parent:
                 child["logicalParent"] = parent.to_obj()
-            schema = graph.get_aspect(child_urn, SchemaMetadataClass)
+            schema = get_aspect(child_urn, SchemaMetadataClass)
             sf_urns = [make_schema_field_urn(child_urn, f.fieldPath) for f in (schema.fields if schema else [])]
             links = batch_get_aspect(graph, "schemaField", sf_urns, LogicalParentClass)
             fields = []

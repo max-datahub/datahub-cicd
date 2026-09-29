@@ -47,6 +47,9 @@ python -m src.cli.export_cmd --output-dir metadata/ --domain urn:li:domain:marke
 python -m src.cli.export_cmd --output-dir metadata/ --platform snowflake --env PROD
 python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/example-scope.yaml
 
+# Large instances: fewer parallel logical-model fetches, longer per-request timeout
+DATAHUB_TIMEOUT_SEC=120 python -m src.cli.export_cmd --output-dir metadata/ --workers 2
+
 # Export with DEBUG logging (shows full stack traces)
 python -m src.cli.export_cmd --output-dir metadata/ --log-level DEBUG
 
@@ -136,7 +139,7 @@ Key modules:
 - **`TrackedGraph`** (`src/run_context.py`): Wraps `DataHubGraph` with `__getattr__` delegation. Tracks call counts and timing for API methods (`get_tags`, `emit_mcp`, etc.) transparently. Untracked methods pass through with zero overhead.
 - **`RunContext`** (`src/run_context.py`): Tracks run ID, command, phase timing, and duration.
 - **Error classification** (`src/error_classification.py`): `classify_error(exc)` returns `(category, suggestion)` tuple. Handles DataHub SDK exceptions (HTTP status codes in attrs/messages), standard Python exceptions, and unknown errors.
-- **Retry** (`src/retry.py`): `@retry_transient` decorator with exponential backoff. Retries `ConnectionError`, `TimeoutError`, HTTP 429/502/503/504. Does NOT retry auth/validation/client errors. Applied to `OverwriteStrategy.emit()`, enrichment API calls, and `apply_deletions()`.
+- **Retry** (`src/retry.py`): `@retry_transient` decorator with exponential backoff. Retries builtin and `requests` `ConnectionError`/`Timeout`, HTTP 429/502/503/504 (status read via `http_status()` from `exc.status_code` or `exc.response.status_code`). Does NOT retry auth/validation/client errors. Applied to `OverwriteStrategy.emit()`, enrichment API calls, and `apply_deletions()`.
 - **Skip tracking**: `SyncResult.skip_reason` field with constants (`SKIP_DRY_RUN`, `SKIP_SYSTEM_ENTITY`, `SKIP_PROVENANCE_FILTER`, `SKIP_NO_ENRICHMENT`, `SKIP_TARGET_MISSING`, etc.) in `src/interfaces.py`. Enrichment for an entity that does not exist on the target is skipped (`target_missing`) instead of creating a stub; checked in dry-run too.
 - **Stack traces**: Full tracebacks at `logger.debug(exc_info=True)` (visible with `--log-level DEBUG`), clean one-line messages at `logger.error()`. Tracebacks also stored in `SyncResult.traceback` for the run report.
 

@@ -18,26 +18,37 @@ import logging
 import time
 from functools import wraps
 
+import requests
+
 logger = logging.getLogger(__name__)
 
-# Exception types that indicate transient failures worth retrying
-TRANSIENT_EXCEPTIONS = (ConnectionError, ConnectionResetError, TimeoutError)
+# Exception types that indicate transient failures worth retrying. requests' exceptions
+# (raised by the DataHub SDK) are not subclasses of the builtin ones.
+TRANSIENT_EXCEPTIONS = (
+    ConnectionError,
+    ConnectionResetError,
+    TimeoutError,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.Timeout,
+)
 
 # HTTP status codes that indicate transient server issues
 TRANSIENT_HTTP_CODES = {429, 502, 503, 504}
+
+
+def http_status(exc: Exception) -> int | None:
+    """Status code from SDK exceptions (status_code) or requests.HTTPError (response.status_code)."""
+    status_code = getattr(exc, "status_code", None)
+    if status_code is None:
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+    return status_code if isinstance(status_code, int) else None
 
 
 def _is_transient(exc: Exception) -> bool:
     """Check if an exception represents a transient failure."""
     if isinstance(exc, TRANSIENT_EXCEPTIONS):
         return True
-
-    # Check for HTTP status code on SDK exceptions
-    status_code = getattr(exc, "status_code", None)
-    if status_code and status_code in TRANSIENT_HTTP_CODES:
-        return True
-
-    return False
+    return http_status(exc) in TRANSIENT_HTTP_CODES
 
 
 def retry_transient(

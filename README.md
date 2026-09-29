@@ -427,9 +427,19 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 | Governance export | 1 `batchGet` per 100 definitions per type (tags, glossary nodes/terms, domains, data products) | ~2 requests for ~100 entities | |
 | Dataset enrichment | 5 HTTP calls per dataset (tags, terms, domain, ownership, ESM) | ~0.05s per dataset | 146 datasets = ~7s |
 | Non-dataset enrichment | 4 HTTP calls per entity (tags, terms, domain, ownership) | ~0.04s per entity | 43 entities (chart+dashboard+container+dataFlow+dataProduct) = ~1.7s |
-| Logical model export | 1 `batchGet` per 100 column links, 8 models fetched in parallel | ~0.25s per model | 585 models / 46,502 column links = ~2.3 min |
+| Logical model export | 1 `batchGet` per 100 column links, `--workers` models fetched in parallel (default 8) | ~0.25s per model (2 physical children); grows with physical children per model | 585 models / 46,502 column links = ~2.3 min |
 | Sync (write) | 1 HTTP call per MCP | ~0.02s per MCP | Sequential per-entity emission |
 | **Full export** | | **~8s total** | 226 entities across 11 types |
+
+### Tuning for large instances
+
+- `--workers N` (export): logical models fetched in parallel. Lower it (e.g. `--workers 1`-`3`)
+  if `schemaField/batchGet` requests time out; concurrent requests can slow the instance far
+  more than they speed up the export.
+- `DATAHUB_TIMEOUT_SEC` (all commands): per-request connect/read timeout passed to the SDK
+  (SDK default 30s).
+- HTTP timeouts, connection errors and HTTP 429/502/503/504 are retried with backoff
+  (`src/retry.py`); an export still fails if a request keeps failing after the retries.
 
 ### Extension Points for Future Optimization
 

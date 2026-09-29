@@ -8,10 +8,14 @@ logger = logging.getLogger(__name__)
 
 
 def get_graph(server_url: str, token: str) -> DataHubGraph:
-    """Create a DataHubGraph client."""
-    config = DatahubClientConfig(server=server_url, token=token)
+    """Create a DataHubGraph client.
+
+    DATAHUB_TIMEOUT_SEC overrides the SDK's per-request connect/read timeout (30s).
+    """
+    timeout = os.environ.get("DATAHUB_TIMEOUT_SEC")
+    config = DatahubClientConfig(server=server_url, token=token, timeout_sec=float(timeout) if timeout else None)
     graph = DataHubGraph(config)
-    logger.info(f"Connected to DataHub at {server_url}")
+    logger.info(f"Connected to DataHub at {server_url}" + (f" (timeout {timeout}s)" if timeout else ""))
     return graph
 
 
