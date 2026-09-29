@@ -1,0 +1,58 @@
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,customer,PROD)",
+  "aspects": {
+    "datasetProperties": {
+      "customProperties": {},
+      "name": "customer",
+      "tags": []
+    },
+    "schemaMetadata": {
+      "schemaName": "s",
+      "platform": "urn:li:dataPlatform:cicd_it_logical",
+      "version": 0,
+      "created": {
+        "time": 0,
+        "actor": "urn:li:corpuser:unknown"
+      },
+      "lastModified": {
+        "time": 0,
+        "actor": "urn:li:corpuser:unknown"
+      },
+      "hash": "",
+      "platformSchema": {
+        "com.linkedin.pegasus2avro.schema.OtherSchema": {
+          "rawSchema": ""
+        }
+      },
+      "fields": [
+        {
+          "fieldPath": "id",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "email",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        }
+      ]
+    },
+    "container": {
+      "container": "urn:li:container:cicd-it-lm-root"
+    }
+  }
+}

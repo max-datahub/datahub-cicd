@@ -1,0 +1,2446 @@
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD)",
+  "aspects": {
+    "datasetProperties": {
+      "customProperties": {},
+      "name": "wide",
+      "tags": []
+    },
+    "schemaMetadata": {
+      "schemaName": "s",
+      "platform": "urn:li:dataPlatform:cicd_it_logical",
+      "version": 0,
+      "created": {
+        "time": 0,
+        "actor": "urn:li:corpuser:unknown"
+      },
+      "lastModified": {
+        "time": 0,
+        "actor": "urn:li:corpuser:unknown"
+      },
+      "hash": "",
+      "platformSchema": {
+        "com.linkedin.pegasus2avro.schema.OtherSchema": {
+          "rawSchema": ""
+        }
+      },
+      "fields": [
+        {
+          "fieldPath": "c000",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c001",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c002",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c003",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c004",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c005",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c006",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c007",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c008",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c009",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c010",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c011",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c012",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c013",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c014",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c015",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c016",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c017",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c018",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c019",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c020",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c021",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c022",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c023",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c024",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c025",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c026",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c027",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c028",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c029",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c030",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c031",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c032",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c033",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c034",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c035",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c036",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c037",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c038",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c039",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c040",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c041",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c042",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c043",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c044",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c045",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c046",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c047",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c048",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c049",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c050",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c051",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c052",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c053",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c054",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c055",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c056",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c057",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c058",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c059",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c060",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c061",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c062",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c063",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c064",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c065",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c066",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c067",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c068",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c069",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c070",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c071",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c072",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c073",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c074",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c075",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c076",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c077",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c078",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c079",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c080",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c081",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c082",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c083",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c084",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c085",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c086",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c087",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c088",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c089",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c090",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c091",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c092",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c093",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c094",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c095",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c096",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c097",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c098",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c099",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c100",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c101",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c102",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c103",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c104",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c105",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c106",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c107",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c108",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c109",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c110",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c111",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c112",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c113",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c114",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c115",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c116",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c117",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c118",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "c119",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        }
+      ]
+    },
+    "container": {
+      "container": "urn:li:container:cicd-it-lm-root"
+    }
+  },
+  "physicalChildren": [
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD)",
+      "logicalParent": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD)"
+        }
+      },
+      "fields": [
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c000)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c000)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c001)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c001)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c002)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c002)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c003)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c003)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c004)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c004)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c005)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c005)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c006)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c006)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c007)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c007)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c008)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c008)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c009)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c009)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c010)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c010)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c011)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c011)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c012)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c012)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c013)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c013)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c014)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c014)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c015)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c015)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c016)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c016)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c017)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c017)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c018)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c018)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c019)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c019)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c020)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c020)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c021)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c021)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c022)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c022)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c023)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c023)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c024)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c024)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c025)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c025)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c026)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c026)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c027)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c027)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c028)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c028)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c029)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c029)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c030)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c030)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c031)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c031)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c032)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c032)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c033)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c033)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c034)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c034)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c035)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c035)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c036)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c036)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c037)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c037)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c038)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c038)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c039)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c039)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c040)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c040)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c041)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c041)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c042)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c042)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c043)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c043)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c044)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c044)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c045)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c045)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c046)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c046)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c047)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c047)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c048)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c048)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c049)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c049)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c050)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c050)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c051)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c051)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c052)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c052)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c053)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c053)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c054)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c054)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c055)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c055)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c056)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c056)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c057)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c057)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c058)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c058)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c059)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c059)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c060)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c060)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c061)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c061)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c062)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c062)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c063)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c063)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c064)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c064)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c065)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c065)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c066)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c066)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c067)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c067)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c068)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c068)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c069)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c069)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c070)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c070)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c071)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c071)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c072)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c072)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c073)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c073)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c074)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c074)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c075)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c075)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c076)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c076)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c077)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c077)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c078)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c078)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c079)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c079)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c080)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c080)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c081)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c081)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c082)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c082)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c083)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c083)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c084)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c084)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c085)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c085)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c086)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c086)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c087)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c087)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c088)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c088)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c089)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c089)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c090)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c090)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c091)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c091)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c092)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c092)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c093)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c093)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c094)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c094)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c095)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c095)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c096)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c096)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c097)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c097)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c098)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c098)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c099)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c099)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c100)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c100)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c101)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c101)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c102)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c102)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c103)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c103)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c104)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c104)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c105)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c105)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c106)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c106)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c107)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c107)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c108)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c108)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c109)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c109)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c110)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c110)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c111)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c111)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c112)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c112)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c113)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c113)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c114)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c114)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c115)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c115)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c116)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c116)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c117)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c117)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c118)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c118)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD),c119)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c119)"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "urn": "urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,invoice,PROD)",
+  "aspects": {
+    "datasetProperties": {
+      "customProperties": {},
+      "name": "invoice",
+      "description": "Invoice model",
+      "tags": []
+    },
+    "schemaMetadata": {
+      "schemaName": "s",
+      "platform": "urn:li:dataPlatform:cicd_it_logical",
+      "version": 0,
+      "created": {
+        "time": 0,
+        "actor": "urn:li:corpuser:unknown"
+      },
+      "lastModified": {
+        "time": 0,
+        "actor": "urn:li:corpuser:unknown"
+      },
+      "hash": "",
+      "platformSchema": {
+        "com.linkedin.pegasus2avro.schema.OtherSchema": {
+          "rawSchema": ""
+        }
+      },
+      "fields": [
+        {
+          "fieldPath": "invoice_id",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        },
+        {
+          "fieldPath": "amount",
+          "nullable": false,
+          "type": {
+            "type": {
+              "com.linkedin.pegasus2avro.schema.StringType": {}
+            }
+          },
+          "nativeDataType": "string",
+          "recursive": false,
+          "isPartOfKey": false
+        }
+      ]
+    },
+    "container": {
+      "container": "urn:li:container:cicd-it-lm-sub"
+    }
+  },
+  "physicalChildren": [
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.invoices,PROD)",
+      "logicalParent": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,invoice,PROD)"
+        }
+      },
+      "fields": [
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.invoices,PROD),invoice_id)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,invoice,PROD),invoice_id)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.invoices,PROD),amount)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,invoice,PROD),amount)"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -50,6 +50,9 @@ python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/exampl
 # Export with DEBUG logging (shows full stack traces)
 python -m src.cli.export_cmd --output-dir metadata/ --log-level DEBUG
 
+# Export only logical models (+ tag/glossary/domain definitions and logical-model enrichment)
+python -m src.cli.export_cmd --output-dir metadata/ --logical-models-only
+
 # Sync to prod DataHub (dry-run)
 python -m src.cli.sync_cmd --metadata-dir metadata/ --dry-run
 
@@ -165,4 +168,5 @@ Key modules:
 - Handler tests cover: export, build_mcps, system entity filtering, hierarchical ordering.
 - Observability unit tests cover: retry logic, error classification, TrackedGraph, run reports (JSON/Markdown), JSONL logging, incremental state.
 - Integration tests (`@pytest.mark.integration`) spin up a Docker DataHub instance pinned to OSS `v1.7.0.1` (`DATAHUB_TEST_OSS_VERSION`) with a 10000-port offset and seed test data via `tests/integration/seed.py`. Point at an existing instance instead with `DATAHUB_TEST_GMS_URL` / `DATAHUB_TEST_GMS_TOKEN`.
+- Logical model integration tests compare the exported `logicalModels/` tree byte-for-byte against `tests/integration/golden/logicalModels/`. After an intended export-format change, regenerate with `UPDATE_GOLDEN=1 pytest -m integration tests/integration/test_logical_models.py` and review the diff.
 - Integration observability tests (`tests/integration/test_observability.py`) validate that JSONL logs, JSON/Markdown reports, `.run-state.json`, API stats, and skip tracking are produced correctly during real export/sync runs.

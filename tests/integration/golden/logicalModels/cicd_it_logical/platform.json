@@ -1,0 +1,12 @@
+{
+  "urn": "urn:li:dataPlatform:cicd_it_logical",
+  "aspects": {
+    "dataPlatformInfo": {
+      "name": "cicd_it_logical",
+      "displayName": "CICD IT Logical",
+      "type": "OTHERS",
+      "datasetNameDelimiter": ".",
+      "logical": true
+    }
+  }
+}

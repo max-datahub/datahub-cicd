@@ -84,7 +84,11 @@ def graph(mock_graph, world):
             return sorted(world["logical"])
         return world["datasets"].get(platform, [])
 
+    def get_entities(entity_name, urns, aspects=None, **_):
+        return {u: {"logicalParent": (world["logical_parent"][u], None)} for u in urns if u in world["logical_parent"]}
+
     mock_graph.get_aspect.side_effect = get_aspect
+    mock_graph.get_entities.side_effect = get_entities
     mock_graph.get_entity_semityped.side_effect = get_entity_semityped
     mock_graph.get_urns_by_filter.side_effect = get_urns_by_filter
     mock_graph.get_related_entities.side_effect = lambda urn, relationship_types, direction: [
