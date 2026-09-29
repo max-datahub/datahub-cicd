@@ -68,17 +68,28 @@ def batch_get_aspect(graph, entity_type: str, urns: list[str], aspect_cls: type,
 
     Returns {urn: aspect}; URNs without the aspect are omitted.
     """
+    found = batch_get_aspects(graph, entity_type, urns, (aspect_cls,), batch_size)
+    return {urn: bag[aspect_cls.ASPECT_NAME] for urn, bag in found.items()}
+
+
+def batch_get_aspects(graph, entity_type: str, urns: list[str], aspect_classes: tuple[type, ...], batch_size: int = 100) -> dict:
+    """Like batch_get_aspect, but several aspects per request.
+
+    Returns {urn: {aspect_name: aspect}}; URNs with none of the aspects are omitted.
+    """
+    names = [cls.ASPECT_NAME for cls in aspect_classes]
     found = {}
     for i in range(0, len(urns), batch_size):
         batch = urns[i : i + batch_size]
 
         @retry_transient(max_retries=3, base_delay=1.0)
         def _get():
-            return graph.get_entities(entity_type, batch, aspects=[aspect_cls.ASPECT_NAME])
+            return graph.get_entities(entity_type, batch, aspects=names)
 
         for urn, aspects in _get().items():
-            if aspect_cls.ASPECT_NAME in aspects:
-                found[urn] = aspects[aspect_cls.ASPECT_NAME][0]
+            bag = {name: aspects[name][0] for name in names if name in aspects}
+            if bag:
+                found[urn] = bag
     return found
 
 
