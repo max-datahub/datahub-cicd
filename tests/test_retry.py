@@ -3,11 +3,33 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from src.retry import retry_transient, _is_transient
 
 
+def _http_error(status: int) -> requests.exceptions.HTTPError:
+    response = requests.Response()
+    response.status_code = status
+    return requests.exceptions.HTTPError(f"{status} error", response=response)
+
+
 class TestIsTransient:
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            requests.exceptions.ReadTimeout("Read timed out. (read timeout=30.0)"),
+            requests.exceptions.ConnectTimeout("connect timed out"),
+            requests.exceptions.ConnectionError("connection aborted"),
+        ],
+    )
+    def test_requests_timeouts_and_connection_errors_are_transient(self, exc):
+        assert _is_transient(exc) is True
+
+    @pytest.mark.parametrize("status,expected", [(429, True), (503, True), (504, True), (401, False), (404, False)])
+    def test_requests_http_error_uses_response_status(self, status, expected):
+        assert _is_transient(_http_error(status)) is expected
+
     def test_connection_error_is_transient(self):
         assert _is_transient(ConnectionError("reset")) is True
 
@@ -110,6 +132,17 @@ class TestRetryTransient:
             call()
         assert mock_fn.call_count == 1
         mock_sleep.assert_not_called()
+
+    @patch("src.retry.time.sleep")
+    def test_retries_on_requests_read_timeout(self, mock_sleep):
+        mock_fn = MagicMock(side_effect=[requests.exceptions.ReadTimeout("timed out"), "ok"])
+
+        @retry_transient(max_retries=3, base_delay=1.0)
+        def call():
+            return mock_fn()
+
+        assert call() == "ok"
+        assert mock_fn.call_count == 2
 
     @patch("src.retry.time.sleep")
     def test_retries_on_http_503(self, mock_sleep):

@@ -7,13 +7,16 @@ from src.registry import HandlerRegistry
 
 
 def create_default_registry(
-    logical_platforms: list[str] | None = None, logical_models_only: bool = False
+    logical_platforms: list[str] | None = None,
+    logical_models_only: bool = False,
+    logical_workers: int = 8,
 ) -> HandlerRegistry:
     """Create a registry with all governance handlers plus logical model definitions.
 
     logical_platforms scopes LogicalModelHandler's export (None = every platform
     with dataPlatformInfo.logical == true). logical_models_only drops data products,
     keeping the tag/glossary/domain definitions logical-model enrichment can reference.
+    logical_workers is the number of logical models fetched in parallel.
     Enrichment handlers are registered separately because they need governance_urns
     populated after export.
     """
@@ -24,5 +27,5 @@ def create_default_registry(
     registry.register(DomainHandler())
     if not logical_models_only:
         registry.register(DataProductHandler())
-    registry.register(LogicalModelHandler(platforms=logical_platforms))
+    registry.register(LogicalModelHandler(platforms=logical_platforms, max_workers=logical_workers))
     return registry

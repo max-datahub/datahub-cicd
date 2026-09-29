@@ -10,6 +10,10 @@ Usage:
 
 import re
 
+import requests
+
+from src.retry import http_status
+
 
 def _classify_http_status(status_code: int) -> tuple[str, str]:
     """Classify an HTTP status code into a category and suggestion."""
@@ -46,9 +50,14 @@ def classify_error(exc: Exception) -> tuple[str, str]:
     Returns:
         Tuple of (category: str, suggestion: str).
     """
-    # Check DataHub SDK types with status_code attribute
-    if hasattr(exc, "status_code"):
-        return _classify_http_status(exc.status_code)
+    # Check DataHub SDK types with status_code, or requests.HTTPError's response
+    status_code = http_status(exc)
+    if status_code is not None:
+        return _classify_http_status(status_code)
+    if isinstance(exc, requests.exceptions.Timeout):
+        return ("timeout", "DataHub instance may be overloaded — raise DATAHUB_TIMEOUT_SEC or lower --workers")
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return ("connection", "Check network connectivity to DataHub instance")
 
     # Check for HTTP status in exception message (SDK pattern: "... Status: 401 ...")
     status_match = re.search(

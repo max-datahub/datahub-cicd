@@ -45,6 +45,13 @@ def logical_enrichment_scope(scope: ScopeConfig, exports: dict[str, list[dict]])
     return dataclasses.replace(scope, platforms=platforms) if platforms else None
 
 
+def _positive_int(value: str) -> int:
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {n}")
+    return n
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Export governance entities and enrichment from dev DataHub"
@@ -115,6 +122,15 @@ def main() -> None:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         help="Logging level (default: INFO)",
     )
+    parser.add_argument(
+        "--workers",
+        type=_positive_int,
+        default=8,
+        help=(
+            "Logical models fetched in parallel (default: 8). Lower it if the "
+            "instance times out under load; see also DATAHUB_TIMEOUT_SEC."
+        ),
+    )
     args = parser.parse_args()
 
     # Set up run context and structured logging
@@ -134,7 +150,9 @@ def main() -> None:
         logger.info(f"Enrichment scope: {scope}")
 
     registry = create_default_registry(
-        logical_platforms=scope.platforms, logical_models_only=args.logical_models_only
+        logical_platforms=scope.platforms,
+        logical_models_only=args.logical_models_only,
+        logical_workers=args.workers,
     )
     orchestrator = SyncOrchestrator(
         registry=registry,
