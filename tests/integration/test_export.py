@@ -128,6 +128,26 @@ class TestDataProductExport:
         assert product["assets"][0]["destinationUrn"] == seed.DATASET_1
 
 
+class TestBatchedGovernanceExport:
+    """Definitions are fetched via batch_get_aspect, 100 URNs per request."""
+
+    @pytest.mark.parametrize("entity_type", sorted(seed.BULK_URNS))
+    def test_all_bulk_entities_exported(self, export_dir, entity_type):
+        exported = {e["urn"]: e for e in _load(export_dir, f"{entity_type}.json")}
+        missing = set(seed.BULK_URNS[entity_type]) - exported.keys()
+        assert not missing, f"{len(missing)} bulk {entity_type}s missing across batch boundary"
+        for urn in seed.BULK_URNS[entity_type]:
+            assert exported[urn]["name"] == urn.rsplit(":", 1)[1]
+
+    def test_definitions_fetched_in_batches(self, export_dir):
+        with open(os.path.join(export_dir, "run-report.json")) as f:
+            methods = json.load(f)["api_stats"]["by_method"]
+        # Two batchGet requests per bulk type at minimum (105 URNs > 100 per batch).
+        assert methods["get_entities"]["calls"] >= 2 * len(seed.BULK_URNS)
+        # Per-entity reads would be >= 4 * 105; enrichment's own get_aspect calls stay well below one type's count.
+        assert methods.get("get_aspect", {}).get("calls", 0) < seed.BULK_COUNT
+
+
 # ── Dataset enrichment ─────────────────────────────────────────────────────
 
 

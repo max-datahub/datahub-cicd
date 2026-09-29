@@ -31,7 +31,7 @@ from datahub.metadata.schema_classes import (
 from src.interfaces import EntityHandler, UrnMapper
 from src.logical_layout import parent_container, read_tree, write_tree
 from src.retry import retry_transient
-from src.utils import topological_sort
+from src.utils import batch_get_aspect, topological_sort
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,6 @@ DEFINITION_ASPECTS: dict[str, tuple[type, ...]] = {
 }
 PHYSICAL_CHILD = "physicalChild"
 _LOGICAL_FILTER = [{"field": "logical", "condition": "EQUAL", "values": ["true"]}]
-_BATCH_SIZE = 100
 
 
 def _platform_urn(platform: str) -> str:
@@ -194,7 +193,7 @@ class LogicalModelHandler(EntityHandler):
                 child["logicalParent"] = parent.to_obj()
             schema = graph.get_aspect(child_urn, SchemaMetadataClass)
             sf_urns = [make_schema_field_urn(child_urn, f.fieldPath) for f in (schema.fields if schema else [])]
-            links = self._logical_parents(graph, sf_urns)
+            links = batch_get_aspect(graph, "schemaField", sf_urns, LogicalParentClass)
             fields = []
             for sf_urn in sf_urns:
                 link = links.get(sf_urn)
@@ -204,21 +203,6 @@ class LogicalModelHandler(EntityHandler):
                 child["fields"] = fields
             children.append(child)
         return children
-
-    def _logical_parents(self, graph: DataHubGraph, sf_urns: list[str]) -> dict[str, LogicalParentClass]:
-        """Batch-fetch logicalParent for schemaFields; one request per _BATCH_SIZE fields."""
-        found: dict[str, LogicalParentClass] = {}
-        for i in range(0, len(sf_urns), _BATCH_SIZE):
-            batch = sf_urns[i : i + _BATCH_SIZE]
-
-            @retry_transient(max_retries=3, base_delay=1.0)
-            def _get():
-                return graph.get_entities("schemaField", batch, aspects=[LogicalParentClass.ASPECT_NAME])
-
-            for urn, aspects in _get().items():
-                if LogicalParentClass.ASPECT_NAME in aspects:
-                    found[urn] = aspects[LogicalParentClass.ASPECT_NAME][0]
-        return found
 
     # ── sync ──────────────────────────────────────────────────────────────
 

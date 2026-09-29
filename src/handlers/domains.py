@@ -5,7 +5,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import DomainPropertiesClass
 
 from src.interfaces import EntityHandler, UrnMapper
-from src.utils import topological_sort
+from src.utils import batch_get_aspect, topological_sort
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +21,16 @@ class DomainHandler(EntityHandler):
         return []
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        entities = []
+        urns = []
         for urn in graph.get_urns_by_filter(entity_types=["domain"]):
             if self.is_system_entity(urn):
                 logger.debug(f"Skipping system domain: {urn}")
                 continue
-            props = graph.get_aspect(urn, DomainPropertiesClass)
+            urns.append(urn)
+        found = batch_get_aspect(graph, "domain", urns, DomainPropertiesClass)
+        entities = []
+        for urn in urns:
+            props = found.get(urn)
             if props:
                 entities.append(
                     {

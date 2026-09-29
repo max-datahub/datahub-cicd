@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from src.interfaces import EntityHandler, UrnMapper
+from src.utils import batch_get_aspect
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,16 @@ class DataProductHandler(EntityHandler):
         return ["domain"]
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        entities = []
+        urns = []
         for urn in graph.get_urns_by_filter(entity_types=["dataProduct"]):
             if self.is_system_entity(urn):
                 logger.debug(f"Skipping system data product: {urn}")
                 continue
-            props = graph.get_aspect(urn, DataProductPropertiesClass)
+            urns.append(urn)
+        found = batch_get_aspect(graph, "dataProduct", urns, DataProductPropertiesClass)
+        entities = []
+        for urn in urns:
+            props = found.get(urn)
             if props:
                 assets = []
                 for a in props.assets or []:

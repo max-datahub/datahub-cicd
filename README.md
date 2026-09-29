@@ -424,7 +424,7 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 
 | Operation | Bottleneck | Current | Notes |
 |---|---|---|---|
-| Governance export | 1 HTTP call per entity (aspect read) | ~0.05s per entity | 43 entities = ~0.6s |
+| Governance export | 1 `batchGet` per 100 definitions per type (tags, glossary nodes/terms, domains, data products) | ~2 requests for ~100 entities | |
 | Dataset enrichment | 5 HTTP calls per dataset (tags, terms, domain, ownership, ESM) | ~0.05s per dataset | 146 datasets = ~7s |
 | Non-dataset enrichment | 4 HTTP calls per entity (tags, terms, domain, ownership) | ~0.04s per entity | 43 entities (chart+dashboard+container+dataFlow+dataProduct) = ~1.7s |
 | Logical model export | 1 `batchGet` per 100 column links, 8 models fetched in parallel | ~0.25s per model | 585 models / 46,502 column links = ~2.3 min |
@@ -434,7 +434,7 @@ Trigger the `Sync Metadata` workflow manually with `dry_run: true` for preview o
 ### Extension Points for Future Optimization
 
 **Batch reads during export** (`EntityHandler.export()`):
-- Current: `graph.get_aspect(urn, AspectClass)` per entity (1 HTTP call each); logical model export already batches column links via `get_entities`
+- Current: enrichment export still calls `graph.get_aspect(urn, AspectClass)` per entity (1 HTTP call each); governance definitions and logical model column links already batch through `batch_get_aspect()` (`src/utils.py`)
 - Future: `graph.get_entities(entity_name, urns, aspects)` fetches multiple entities' aspects in a single call
 - Impact: Reduces enrichment export from 4N HTTP calls to ~4 batch calls
 
@@ -624,7 +624,7 @@ The integration test suite:
 1. Downloads the official DataHub quickstart `docker-compose.yml`
 2. Starts all services with a dedicated project name (`datahub-cicd-integration`)
 3. Seeds deterministic test entities covering all supported types:
-   - Governance: tags (incl. system tag for filtering), glossary nodes (nested), glossary terms (with parents, incl. null-name and URN-in-termSource quirks), domains (nested), data products (with assets)
+   - Governance: tags (incl. system tag for filtering), glossary nodes (nested), glossary terms (with parents, incl. null-name and URN-in-termSource quirks), domains (nested), data products (with assets), plus 105 extra tags/glossary nodes/glossary terms/domains so each definition fetch spans two batch requests
    - Data assets: datasets (postgres/PROD + snowflake/PROD for multi-platform), charts (looker), dashboards (looker), containers, dataflows
    - Enrichment: tags, terms, domains, ownership on all asset types + field-level tags/terms on datasets
    - Logical models: a logical platform with nested containers, models with and without physical children, a 120-column child (column links span two batch requests), and a cross-model column link that must not export
