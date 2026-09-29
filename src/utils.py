@@ -2,6 +2,8 @@ import json
 import logging
 from pathlib import Path
 
+from src.retry import retry_transient
+
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +61,25 @@ def topological_sort(entities: list[dict], parent_key: str) -> list[dict]:
         )
 
     return [urn_to_entity[urn] for urn in sorted_urns]
+
+
+def batch_get_aspect(graph, entity_type: str, urns: list[str], aspect_cls: type, batch_size: int = 100) -> dict:
+    """Fetch one aspect for many URNs via OpenAPI v3 batchGet, one request per batch_size URNs.
+
+    Returns {urn: aspect}; URNs without the aspect are omitted.
+    """
+    found = {}
+    for i in range(0, len(urns), batch_size):
+        batch = urns[i : i + batch_size]
+
+        @retry_transient(max_retries=3, base_delay=1.0)
+        def _get():
+            return graph.get_entities(entity_type, batch, aspects=[aspect_cls.ASPECT_NAME])
+
+        for urn, aspects in _get().items():
+            if aspect_cls.ASPECT_NAME in aspects:
+                found[urn] = aspects[aspect_cls.ASPECT_NAME][0]
+    return found
 
 
 def name_from_urn(urn: str) -> str:

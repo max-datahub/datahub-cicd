@@ -143,6 +143,7 @@ Key modules:
 ### Utilities (`src/utils.py`)
 
 - `topological_sort(entities, parent_key)`: Orders hierarchical entities so parents precede children.
+- `batch_get_aspect(graph, entity_type, urns, aspect_cls)`: Fetches one aspect for many URNs via OpenAPI v3 `batchGet` (100 per request, retried). Used by governance handlers and logical model column links; new handlers should use it instead of per-URN `get_aspect`.
 - `collect_governance_urns(exports)`: Gathers all governance URNs for enrichment filtering (prevents dangling references).
 - `write_json` / `read_json`: JSON I/O for metadata files.
 

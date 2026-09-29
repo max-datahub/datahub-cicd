@@ -757,11 +757,39 @@ def seed_logical_models(graph: DataHubGraph) -> None:
     _emit(graph, mcps)
 
 
+# Bulk governance entities: >100 per type so the batched definition fetch
+# (batch_get_aspect, 100 URNs per request) spans two requests for each type.
+BULK_COUNT = 105
+BULK_URNS = {
+    et: [f"urn:li:{et}:integration-bulk-{i:03d}" for i in range(BULK_COUNT)]
+    for et in ("tag", "glossaryNode", "glossaryTerm", "domain")
+}
+
+
+def seed_bulk_governance(graph: DataHubGraph) -> None:
+    logger.info(f"Seeding {BULK_COUNT} bulk entities per governance type...")
+    aspects = {
+        "tag": lambda n: TagPropertiesClass(name=n),
+        "glossaryNode": lambda n: GlossaryNodeInfoClass(name=n, definition=n),
+        "glossaryTerm": lambda n: GlossaryTermInfoClass(name=n, definition=n, termSource="INTERNAL"),
+        "domain": lambda n: DomainPropertiesClass(name=n),
+    }
+    _emit(
+        graph,
+        [
+            MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspects[et](urn.rsplit(":", 1)[1]))
+            for et, urns in BULK_URNS.items()
+            for urn in urns
+        ],
+    )
+
+
 def seed_all(graph: DataHubGraph) -> None:
     """Run all seed functions in dependency order."""
     seed_tags(graph)
     seed_glossary(graph)
     seed_domains(graph)
+    seed_bulk_governance(graph)
     seed_data_assets(graph)
     seed_data_products(graph)
     seed_enrichment(graph)

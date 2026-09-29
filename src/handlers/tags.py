@@ -5,6 +5,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import TagPropertiesClass
 
 from src.interfaces import EntityHandler, UrnMapper
+from src.utils import batch_get_aspect
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,16 @@ class TagHandler(EntityHandler):
         return []
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        entities = []
+        urns = []
         for urn in graph.get_urns_by_filter(entity_types=["tag"]):
             if self.is_system_entity(urn):
                 logger.debug(f"Skipping system tag: {urn}")
                 continue
-            props = graph.get_aspect(urn, TagPropertiesClass)
+            urns.append(urn)
+        found = batch_get_aspect(graph, "tag", urns, TagPropertiesClass)
+        entities = []
+        for urn in urns:
+            props = found.get(urn)
             if props:
                 entities.append(
                     {

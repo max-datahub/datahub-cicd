@@ -8,7 +8,7 @@ from datahub.metadata.schema_classes import (
 )
 
 from src.interfaces import EntityHandler, UrnMapper
-from src.utils import name_from_urn, topological_sort
+from src.utils import batch_get_aspect, name_from_urn, topological_sort
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +24,16 @@ class GlossaryNodeHandler(EntityHandler):
         return []
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        entities = []
+        urns = []
         for urn in graph.get_urns_by_filter(entity_types=["glossaryNode"]):
             if self.is_system_entity(urn):
                 logger.debug(f"Skipping system glossary node: {urn}")
                 continue
-            info = graph.get_aspect(urn, GlossaryNodeInfoClass)
+            urns.append(urn)
+        found = batch_get_aspect(graph, "glossaryNode", urns, GlossaryNodeInfoClass)
+        entities = []
+        for urn in urns:
+            info = found.get(urn)
             if info:
                 name = info.name or name_from_urn(urn)
                 entities.append(
@@ -79,12 +83,16 @@ class GlossaryTermHandler(EntityHandler):
         return ["glossaryNode"]
 
     def export(self, graph: DataHubGraph) -> list[dict]:
-        entities = []
+        urns = []
         for urn in graph.get_urns_by_filter(entity_types=["glossaryTerm"]):
             if self.is_system_entity(urn):
                 logger.debug(f"Skipping system glossary term: {urn}")
                 continue
-            info = graph.get_aspect(urn, GlossaryTermInfoClass)
+            urns.append(urn)
+        found = batch_get_aspect(graph, "glossaryTerm", urns, GlossaryTermInfoClass)
+        entities = []
+        for urn in urns:
+            info = found.get(urn)
             if info:
                 name = info.name or name_from_urn(urn)
                 # termSource may be stored as a URN (e.g. parent node URN)

@@ -4,7 +4,12 @@ import tempfile
 
 import pytest
 
+from unittest.mock import MagicMock
+
+from datahub.metadata.schema_classes import TagPropertiesClass
+
 from src.utils import (
+    batch_get_aspect,
     collect_governance_urns,
     name_from_urn,
     read_json,
@@ -167,3 +172,25 @@ class TestJsonIO:
             write_json([], path)
             with open(path) as f:
                 assert json.load(f) == []
+
+
+class TestBatchGetAspect:
+    def test_chunks_requests_and_drops_missing(self):
+        urns = [f"urn:li:tag:t{i}" for i in range(250)]
+        graph = MagicMock()
+        graph.get_entities.side_effect = lambda entity_name, batch, aspects=None: {
+            u: ({"tagProperties": (TagPropertiesClass(name=u), None)} if u != "urn:li:tag:t7" else {})
+            for u in batch
+        }
+
+        found = batch_get_aspect(graph, "tag", urns, TagPropertiesClass)
+
+        assert [len(c.args[1]) for c in graph.get_entities.call_args_list] == [100, 100, 50]
+        assert all(c.kwargs["aspects"] == ["tagProperties"] for c in graph.get_entities.call_args_list)
+        assert len(found) == 249 and "urn:li:tag:t7" not in found
+        assert found["urn:li:tag:t0"].name == "urn:li:tag:t0"
+
+    def test_empty_makes_no_requests(self):
+        graph = MagicMock()
+        assert batch_get_aspect(graph, "tag", [], TagPropertiesClass) == {}
+        graph.get_entities.assert_not_called()

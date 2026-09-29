@@ -281,7 +281,7 @@ def _wait_for_elasticsearch_sync(graph: DataHubGraph, timeout: int = 60) -> None
     """
     from datahub.ingestion.graph.filters import RemovedStatusFilter
 
-    from tests.integration.seed import TAG_ASSIGNED_THEN_DELETED, TAG_PII
+    from tests.integration.seed import BULK_URNS, TAG_ASSIGNED_THEN_DELETED, TAG_PII
 
     expected_types = ["tag", "glossaryTerm", "domain", "dataset", "chart",
                       "dashboard", "container", "dataFlow", "dataProduct"]
@@ -297,7 +297,10 @@ def _wait_for_elasticsearch_sync(graph: DataHubGraph, timeout: int = 60) -> None
         # must NOT appear in the active (NOT_SOFT_DELETED) tag list.
         active_tags = list(graph.get_urns_by_filter(entity_types=["tag"]))
         soft_deletes_indexed = TAG_ASSIGNED_THEN_DELETED not in active_tags
-        if all_found and TAG_PII in active_tags and soft_deletes_indexed:
+        bulk_indexed = all(
+            set(urns) <= set(graph.get_urns_by_filter(entity_types=[et])) for et, urns in BULK_URNS.items()
+        )
+        if all_found and TAG_PII in active_tags and soft_deletes_indexed and bulk_indexed:
             logger.info("Elasticsearch sync complete — all entity types discoverable, soft-deletes indexed.")
             return
         time.sleep(2)
