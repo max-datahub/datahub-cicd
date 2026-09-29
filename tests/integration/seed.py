@@ -697,6 +697,9 @@ LM_WIDE = f"urn:li:dataset:({LM_PLATFORM},wide,PROD)"
 LM_WIDE_CHILD = "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD)"
 LM_WIDE_COLUMNS = tuple(f"c{i:03d}" for i in range(120))
 LM_STRAY_COLUMN = "stray"  # on LM_WIDE_CHILD but linked to an LM_INVOICE column: must not export
+# Second child of the wide model: its column lookups share a batchGet page with LM_WIDE_CHILD's last 21.
+LM_WIDE_CHILD2 = "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide_ext,PROD)"
+LM_WIDE_CHILD2_COLUMNS = ("c000", "c001", "c002")
 
 
 def _lm_schema(platform: str, cols) -> SchemaMetadataClass:
@@ -716,6 +719,10 @@ def logical_wide_child_schema_mcp() -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(
         entityUrn=LM_WIDE_CHILD, aspect=_lm_schema("urn:li:dataPlatform:snowflake", LM_WIDE_COLUMNS + (LM_STRAY_COLUMN,))
     )
+
+
+def logical_wide_child2_schema_mcp() -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(entityUrn=LM_WIDE_CHILD2, aspect=_lm_schema("urn:li:dataPlatform:snowflake", LM_WIDE_CHILD2_COLUMNS))
 
 
 def seed_logical_models(graph: DataHubGraph) -> None:
@@ -753,6 +760,14 @@ def seed_logical_models(graph: DataHubGraph) -> None:
     mcps += [
         W(entityUrn=make_schema_field_urn(LM_WIDE_CHILD, c), aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(LM_WIDE, c))))
         for c in LM_WIDE_COLUMNS
+    ]
+    mcps += [
+        logical_wide_child2_schema_mcp(),
+        W(entityUrn=LM_WIDE_CHILD2, aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=LM_WIDE))),
+    ]
+    mcps += [
+        W(entityUrn=make_schema_field_urn(LM_WIDE_CHILD2, c), aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(LM_WIDE, c))))
+        for c in LM_WIDE_CHILD2_COLUMNS
     ]
     _emit(graph, mcps)
 

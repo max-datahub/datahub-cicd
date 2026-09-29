@@ -31,7 +31,7 @@ from datahub.metadata.schema_classes import (
 from src.interfaces import EntityHandler, UrnMapper
 from src.logical_layout import parent_container, read_tree, write_tree
 from src.retry import retry_transient
-from src.utils import batch_get_aspect, topological_sort
+from src.utils import batch_get_aspect, batch_get_aspects, topological_sort
 
 logger = logging.getLogger(__name__)
 
@@ -180,24 +180,30 @@ class LogicalModelHandler(EntityHandler):
         return sorted(found.values(), key=lambda c: c["urn"])
 
     def _physical_children(self, graph: DataHubGraph, model_urn: str) -> list[dict]:
-        """logicalParent edges stored on physical datasets and their schemaFields."""
+        """logicalParent edges stored on physical datasets and their schemaFields.
+
+        One batchGet for all children's aspects, then column lookups pooled across
+        children, so a model costs ~2 + columns/100 requests regardless of child count.
+        """
         field_prefix = f"urn:li:schemaField:({model_urn},"
-        retry = retry_transient(max_retries=3, base_delay=1.0)
-        get_aspect = retry(graph.get_aspect)
-        children = []
-        related = retry(graph.get_related_entities)(
+        related = retry_transient(max_retries=3, base_delay=1.0)(graph.get_related_entities)(
             model_urn, relationship_types=["PhysicalInstanceOf"], direction=RelationshipDirection.INCOMING
         )
-        for child_urn in sorted({r.urn for r in related if r.urn.startswith("urn:li:dataset:")}):
+        child_urns = sorted({r.urn for r in related if r.urn.startswith("urn:li:dataset:")})
+        bags = batch_get_aspects(graph, "dataset", child_urns, (LogicalParentClass, SchemaMetadataClass))
+        sf_urns: dict[str, list[str]] = {}
+        for child_urn in child_urns:
+            schema = bags.get(child_urn, {}).get(SchemaMetadataClass.ASPECT_NAME)
+            sf_urns[child_urn] = [make_schema_field_urn(child_urn, f.fieldPath) for f in (schema.fields if schema else [])]
+        links = batch_get_aspect(graph, "schemaField", [u for urns in sf_urns.values() for u in urns], LogicalParentClass)
+        children = []
+        for child_urn in child_urns:
             child: dict = {"urn": child_urn}
-            parent = get_aspect(child_urn, LogicalParentClass)
+            parent = bags.get(child_urn, {}).get(LogicalParentClass.ASPECT_NAME)
             if parent:
                 child["logicalParent"] = parent.to_obj()
-            schema = get_aspect(child_urn, SchemaMetadataClass)
-            sf_urns = [make_schema_field_urn(child_urn, f.fieldPath) for f in (schema.fields if schema else [])]
-            links = batch_get_aspect(graph, "schemaField", sf_urns, LogicalParentClass)
             fields = []
-            for sf_urn in sf_urns:
+            for sf_urn in sf_urns[child_urn]:
                 link = links.get(sf_urn)
                 if link and link.parent and link.parent.destinationUrn.startswith(field_prefix):
                     fields.append({"urn": sf_urn, "logicalParent": link.to_obj()})

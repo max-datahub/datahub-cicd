@@ -84,11 +84,7 @@ def graph(mock_graph, world):
             return sorted(world["logical"])
         return world["datasets"].get(platform, [])
 
-    def get_entities(entity_name, urns, aspects=None, **_):
-        return {u: {"logicalParent": (world["logical_parent"][u], None)} for u in urns if u in world["logical_parent"]}
-
-    mock_graph.get_aspect.side_effect = get_aspect
-    mock_graph.get_entities.side_effect = get_entities
+    mock_graph.get_aspect.side_effect = get_aspect  # conftest's get_entities answers from this too
     mock_graph.get_entity_semityped.side_effect = get_entity_semityped
     mock_graph.get_urns_by_filter.side_effect = get_urns_by_filter
     mock_graph.get_related_entities.side_effect = lambda urn, relationship_types, direction: [
@@ -152,6 +148,26 @@ def test_physical_children_exported_with_matching_column_links(graph, world):
     assert children[0]["logicalParent"]["parent"]["destinationUrn"] == MODEL
     assert [f["urn"] for f in children[0]["fields"]] == [sf]
     graph.get_related_entities.assert_any_call(MODEL, relationship_types=["PhysicalInstanceOf"], direction=RelationshipDirection.INCOMING)
+
+
+def test_physical_children_batched_across_children(graph, world):
+    """One dataset batchGet for all children; column lookups filled to 100 across children."""
+    kids = [f"urn:li:dataset:(urn:li:dataPlatform:snowflake,db.t{i},PROD)" for i in range(2)]
+    world["related"][MODEL] = kids
+    for kid in kids:
+        world["aspects"][kid] = {"schemaMetadata": schema("urn:li:dataPlatform:snowflake", *[f"c{j}" for j in range(60)])}
+        world["logical_parent"][kid] = LogicalParentClass(parent=EdgeClass(destinationUrn=MODEL))
+        sf = make_schema_field_urn(kid, "c0")
+        world["logical_parent"][sf] = LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(MODEL, "c0")))
+
+    out = by_urn(LogicalModelHandler(platforms=["logical"]).export(graph))
+
+    children = out[MODEL]["physicalChildren"]
+    assert [c["urn"] for c in children] == kids
+    assert all(c["logicalParent"]["parent"]["destinationUrn"] == MODEL for c in children)
+    assert [[f["urn"] for f in c["fields"]] for c in children] == [[make_schema_field_urn(k, "c0")] for k in kids]
+    calls = [(c.args[0], len(c.args[1])) for c in graph.get_entities.call_args_list]
+    assert calls == [("dataset", 2), ("schemaField", 100), ("schemaField", 20)]
 
 
 @pytest.fixture
