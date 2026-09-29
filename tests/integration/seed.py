@@ -692,6 +692,11 @@ LM_INVOICE = f"urn:li:dataset:({LM_PLATFORM},invoice,PROD)"
 LM_CUSTOMER = f"urn:li:dataset:({LM_PLATFORM},customer,PROD)"
 LM_CHILD = "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.invoices,PROD)"
 LM_COLUMNS = ("invoice_id", "amount")
+# Wide model: >100 column links so the batched logicalParent lookup spans two requests.
+LM_WIDE = f"urn:li:dataset:({LM_PLATFORM},wide,PROD)"
+LM_WIDE_CHILD = "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide,PROD)"
+LM_WIDE_COLUMNS = tuple(f"c{i:03d}" for i in range(120))
+LM_STRAY_COLUMN = "stray"  # on LM_WIDE_CHILD but linked to an LM_INVOICE column: must not export
 
 
 def _lm_schema(platform: str, cols) -> SchemaMetadataClass:
@@ -705,6 +710,12 @@ def _lm_schema(platform: str, cols) -> SchemaMetadataClass:
 def logical_child_schema_mcp() -> MetadataChangeProposalWrapper:
     """The physical child as ingestion would create it: schema only, no links."""
     return MetadataChangeProposalWrapper(entityUrn=LM_CHILD, aspect=_lm_schema("urn:li:dataPlatform:snowflake", LM_COLUMNS))
+
+
+def logical_wide_child_schema_mcp() -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=LM_WIDE_CHILD, aspect=_lm_schema("urn:li:dataPlatform:snowflake", LM_WIDE_COLUMNS + (LM_STRAY_COLUMN,))
+    )
 
 
 def seed_logical_models(graph: DataHubGraph) -> None:
@@ -727,6 +738,21 @@ def seed_logical_models(graph: DataHubGraph) -> None:
     mcps += [
         W(entityUrn=make_schema_field_urn(LM_CHILD, c), aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(LM_INVOICE, c))))
         for c in LM_COLUMNS
+    ]
+    mcps += [
+        W(entityUrn=LM_WIDE, aspect=DatasetPropertiesClass(name="wide")),
+        W(entityUrn=LM_WIDE, aspect=_lm_schema(LM_PLATFORM, LM_WIDE_COLUMNS)),
+        W(entityUrn=LM_WIDE, aspect=ContainerClass(container=LM_ROOT)),
+        logical_wide_child_schema_mcp(),
+        W(entityUrn=LM_WIDE_CHILD, aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=LM_WIDE))),
+        W(
+            entityUrn=make_schema_field_urn(LM_WIDE_CHILD, LM_STRAY_COLUMN),
+            aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(LM_INVOICE, "invoice_id"))),
+        ),
+    ]
+    mcps += [
+        W(entityUrn=make_schema_field_urn(LM_WIDE_CHILD, c), aspect=LogicalParentClass(parent=EdgeClass(destinationUrn=make_schema_field_urn(LM_WIDE, c))))
+        for c in LM_WIDE_COLUMNS
     ]
     _emit(graph, mcps)
 

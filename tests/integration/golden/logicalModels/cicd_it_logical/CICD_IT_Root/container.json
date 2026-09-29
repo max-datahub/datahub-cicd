@@ -1,0 +1,9 @@
+{
+  "urn": "urn:li:container:cicd-it-lm-root",
+  "aspects": {
+    "containerProperties": {
+      "customProperties": {},
+      "name": "CICD IT Root"
+    }
+  }
+}

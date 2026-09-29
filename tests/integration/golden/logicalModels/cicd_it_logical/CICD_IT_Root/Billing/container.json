@@ -1,0 +1,12 @@
+{
+  "urn": "urn:li:container:cicd-it-lm-sub",
+  "aspects": {
+    "containerProperties": {
+      "customProperties": {},
+      "name": "Billing"
+    },
+    "container": {
+      "container": "urn:li:container:cicd-it-lm-root"
+    }
+  }
+}

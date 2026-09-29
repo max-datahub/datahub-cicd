@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
 )
 
+from src.handlers.logical_models import _LOGICAL_FILTER
 from tests.integration import seed
 from tests.integration.conftest import EXTERNAL_GMS_URL, GMS_TOKEN, GMS_URL
 
@@ -24,6 +26,8 @@ pytestmark = pytest.mark.integration
 
 SCOPE = ["--platform", "cicd_it_logical", "--platform", "postgres"]
 TREE = Path("logicalModels/cicd_it_logical")
+# Regenerate with UPDATE_GOLDEN=1 after an intended export-format change, then review the diff.
+GOLDEN = Path(__file__).parent / "golden" / "logicalModels"
 
 
 def _cli(module: str, *args: str) -> None:
@@ -38,15 +42,28 @@ def _wait_indexed(graph, timeout: int = 90) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         models = set(graph.get_urns_by_filter(entity_types=["dataset"], platform=seed.LM_PLATFORM))
-        children = {r.urn for r in graph.get_related_entities(seed.LM_INVOICE, ["PhysicalInstanceOf"], RelationshipDirection.INCOMING)}
-        if {seed.LM_INVOICE, seed.LM_CUSTOMER} <= models and seed.LM_CHILD in children:
+        children = {
+            r.urn
+            for model in (seed.LM_INVOICE, seed.LM_WIDE)
+            for r in graph.get_related_entities(model, ["PhysicalInstanceOf"], RelationshipDirection.INCOMING)
+        }
+        # unscoped (--logical-models-only) export discovers logical platforms by search
+        platforms = set(graph.get_urns_by_filter(entity_types=["dataPlatform"], extraFilters=_LOGICAL_FILTER))
+        if (
+            {seed.LM_INVOICE, seed.LM_CUSTOMER, seed.LM_WIDE} <= models
+            and {seed.LM_CHILD, seed.LM_WIDE_CHILD} <= children
+            and seed.LM_PLATFORM in platforms
+        ):
             return
         time.sleep(2)
     raise TimeoutError("logical models not indexed")
 
 
 def _tree_bytes(export_dir: Path) -> dict[str, bytes]:
-    root = export_dir / "logicalModels"
+    return _dir_bytes(export_dir / "logicalModels")
+
+
+def _dir_bytes(root: Path) -> dict[str, bytes]:
     return {str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*.json"))}
 
 
@@ -72,14 +89,19 @@ def first_export(lm_graph, tmp_path_factory) -> Path:
 
 @pytest.fixture(scope="module")
 def pushed_to_fresh_target(lm_graph, first_export) -> Path:
-    for urn in (seed.LM_INVOICE, seed.LM_CUSTOMER, seed.LM_SUB, seed.LM_ROOT, seed.LM_PLATFORM, seed.LM_CHILD):
+    for urn in (seed.LM_INVOICE, seed.LM_CUSTOMER, seed.LM_WIDE, seed.LM_SUB, seed.LM_ROOT, seed.LM_PLATFORM,
+                seed.LM_CHILD, seed.LM_WIDE_CHILD):
         lm_graph.hard_delete_entity(urn)
     # schemaField URNs are distinct GMS entities; hard_delete_entity(LM_CHILD) does not
     # cascade to them, and seed_logical_models wrote LogicalParentClass directly onto
     # them, so they must be deleted explicitly to make the fresh-target precondition real.
     for c in seed.LM_COLUMNS:
         lm_graph.hard_delete_entity(make_schema_field_urn(seed.LM_CHILD, c))
-    lm_graph.emit_mcp(seed.logical_child_schema_mcp())  # physical child re-ingested on the "new" instance, unlinked
+    for c in seed.LM_WIDE_COLUMNS + (seed.LM_STRAY_COLUMN,):
+        lm_graph.hard_delete_entity(make_schema_field_urn(seed.LM_WIDE_CHILD, c))
+    # physical children re-ingested on the "new" instance, unlinked
+    lm_graph.emit_mcp(seed.logical_child_schema_mcp())
+    lm_graph.emit_mcp(seed.logical_wide_child_schema_mcp())
     assert not lm_graph.exists(seed.LM_INVOICE)
     assert lm_graph.get_aspect(seed.LM_CHILD, LogicalParentClass) is None
     for c in seed.LM_COLUMNS:
@@ -106,6 +128,53 @@ class TestExport:
         assert child["urn"] == seed.LM_CHILD
         assert {f["urn"] for f in child["fields"]} == {make_schema_field_urn(seed.LM_CHILD, c) for c in seed.LM_COLUMNS}
 
+    def test_wide_child_links_span_batches(self, first_export):
+        # 120 links > one batchGet page; the stray link points at another model and is excluded.
+        body = json.loads((first_export / TREE / "CICD_IT_Root/wide.PROD.json").read_text())
+        (child,) = body["physicalChildren"]
+        assert child["urn"] == seed.LM_WIDE_CHILD
+        assert [f["urn"] for f in child["fields"]] == [make_schema_field_urn(seed.LM_WIDE_CHILD, c) for c in seed.LM_WIDE_COLUMNS]
+
+    def test_model_without_children(self, first_export):
+        body = json.loads((first_export / TREE / "CICD_IT_Root/customer.PROD.json").read_text())
+        assert "physicalChildren" not in body
+
+    def test_matches_golden(self, first_export):
+        actual = _tree_bytes(first_export)
+        if os.environ.get("UPDATE_GOLDEN"):
+            shutil.rmtree(GOLDEN, ignore_errors=True)
+            for rel, data in actual.items():
+                (GOLDEN / rel).parent.mkdir(parents=True, exist_ok=True)
+                (GOLDEN / rel).write_bytes(data)
+        assert actual == _dir_bytes(GOLDEN)
+
+
+@pytest.fixture(scope="module")
+def logical_only_export(lm_graph, tmp_path_factory) -> Path:
+    out = tmp_path_factory.mktemp("lm-export-logical-only")
+    _cli("src.cli.export_cmd", "--output-dir", str(out), "--logical-models-only")
+    return out
+
+
+class TestLogicalModelsOnly:
+    def test_writes_definitions_and_tree(self, logical_only_export):
+        for name in ("tag.json", "glossaryNode.json", "glossaryTerm.json", "domain.json"):
+            assert (logical_only_export / name).exists(), name
+        assert _tree_bytes(logical_only_export)  # tree written; content covered by the golden test
+
+    def test_skips_data_products(self, first_export, logical_only_export):
+        assert (first_export / "dataProduct.json").exists()
+        assert not (logical_only_export / "dataProduct.json").exists()
+
+    def test_enrichment_limited_to_logical_datasets_and_containers(self, logical_only_export):
+        files = {p.name for p in logical_only_export.glob("*nrichment.json")}
+        assert files == {"enrichment.json", "containerEnrichment.json"}
+        ds_urns = {e["dataset_urn"] for e in json.loads((logical_only_export / "enrichment.json").read_text())}
+        assert seed.LM_INVOICE in ds_urns  # carries the PII tag
+        assert all(u.startswith(f"urn:li:dataset:({seed.LM_PLATFORM},") for u in ds_urns), ds_urns
+        containers = {e["entity_urn"] for e in json.loads((logical_only_export / "containerEnrichment.json").read_text())}
+        assert containers <= {seed.LM_ROOT, seed.LM_SUB}, containers
+
 
 class TestFreshTargetPush:
     def test_models_restored(self, lm_graph, pushed_to_fresh_target):
@@ -122,6 +191,10 @@ class TestFreshTargetPush:
         for c in seed.LM_COLUMNS:
             link = lm_graph.get_aspect(make_schema_field_urn(seed.LM_CHILD, c), LogicalParentClass)
             assert link.parent.destinationUrn == make_schema_field_urn(seed.LM_INVOICE, c)
+        for c in seed.LM_WIDE_COLUMNS:
+            link = lm_graph.get_aspect(make_schema_field_urn(seed.LM_WIDE_CHILD, c), LogicalParentClass)
+            assert link.parent.destinationUrn == make_schema_field_urn(seed.LM_WIDE, c)
+        assert lm_graph.get_aspect(make_schema_field_urn(seed.LM_WIDE_CHILD, seed.LM_STRAY_COLUMN), LogicalParentClass) is None
 
 
 class TestIdempotency:
