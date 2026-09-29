@@ -2441,6 +2441,40 @@
           }
         }
       ]
+    },
+    {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide_ext,PROD)",
+      "logicalParent": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD)"
+        }
+      },
+      "fields": [
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide_ext,PROD),c000)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c000)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide_ext,PROD),c001)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c001)"
+            }
+          }
+        },
+        {
+          "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,cicd_it.public.wide_ext,PROD),c002)",
+          "logicalParent": {
+            "parent": {
+              "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cicd_it_logical,wide,PROD),c002)"
+            }
+          }
+        }
+      ]
     }
   ]
 }
