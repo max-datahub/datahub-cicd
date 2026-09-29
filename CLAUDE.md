@@ -50,6 +50,9 @@ python -m src.cli.export_cmd --output-dir metadata/ --scope-config config/exampl
 # Export with DEBUG logging (shows full stack traces)
 python -m src.cli.export_cmd --output-dir metadata/ --log-level DEBUG
 
+# Export only logical models (+ tag/glossary/domain definitions and logical-model enrichment)
+python -m src.cli.export_cmd --output-dir metadata/ --logical-models-only
+
 # Sync to prod DataHub (dry-run)
 python -m src.cli.sync_cmd --metadata-dir metadata/ --dry-run
 

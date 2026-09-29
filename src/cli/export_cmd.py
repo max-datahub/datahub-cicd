@@ -5,9 +5,11 @@ Usage:
     python -m src.cli.export_cmd --output-dir metadata/ --skip-enrichment
     python -m src.cli.export_cmd --output-dir metadata/ --include-deletions
     python -m src.cli.export_cmd --output-dir metadata/ --filter-by-source ui
+    python -m src.cli.export_cmd --output-dir metadata/ --logical-models-only
 """
 
 import argparse
+import dataclasses
 import logging
 import os
 import sys
@@ -33,6 +35,15 @@ from src.write_strategy import DryRunStrategy
 
 logger = logging.getLogger(__name__)
 
+# Entity types that exist on logical platforms (models and their containers).
+LOGICAL_ENRICHABLE_ENTITY_TYPES = ["dataset", "container"]
+
+
+def logical_enrichment_scope(scope: ScopeConfig, exports: dict[str, list[dict]]) -> ScopeConfig | None:
+    """Scope enrichment to the logical platforms actually exported; None when there are none."""
+    platforms = [e["urn"] for e in exports.get("logicalModel", []) if e["entityType"] == "dataPlatform"]
+    return dataclasses.replace(scope, platforms=platforms) if platforms else None
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -47,6 +58,16 @@ def main() -> None:
         "--skip-enrichment",
         action="store_true",
         help="Only export governance definitions, skip enrichment",
+    )
+    parser.add_argument(
+        "--logical-models-only",
+        action="store_true",
+        help=(
+            "Export logical model definitions, the tag/glossary/domain definitions "
+            "their enrichment can reference, and enrichment on logical-platform "
+            "datasets and containers only. Data products and all other enrichment "
+            "are skipped."
+        ),
     )
     parser.add_argument(
         "--include-deletions",
@@ -112,7 +133,9 @@ def main() -> None:
     if scope.is_scoped:
         logger.info(f"Enrichment scope: {scope}")
 
-    registry = create_default_registry(logical_platforms=scope.platforms)
+    registry = create_default_registry(
+        logical_platforms=scope.platforms, logical_models_only=args.logical_models_only
+    )
     orchestrator = SyncOrchestrator(
         registry=registry,
         urn_mapper=PassthroughMapper(),
@@ -157,7 +180,15 @@ def main() -> None:
                     f"{original_count} -> {len(exports[entity_type])}"
                 )
 
-    if not args.skip_enrichment:
+    enrichment_types = ENRICHABLE_ENTITY_TYPES
+    enrichment_scope: ScopeConfig | None = scope
+    if args.logical_models_only:
+        enrichment_types = LOGICAL_ENRICHABLE_ENTITY_TYPES
+        enrichment_scope = logical_enrichment_scope(scope, exports)
+        if enrichment_scope is None and not args.skip_enrichment:
+            logger.info("No logical platforms exported; skipping enrichment")
+
+    if not args.skip_enrichment and enrichment_scope is not None:
         governance_urns = collect_governance_urns(exports)
         logger.info(
             f"Exporting enrichment (filtering by {len(governance_urns)} "
@@ -166,7 +197,7 @@ def main() -> None:
 
         # Dataset enrichment (includes editableSchemaMetadata)
         ds_handler = DatasetEnrichmentHandler(
-            governance_urns=governance_urns, scope=scope
+            governance_urns=governance_urns, scope=enrichment_scope
         )
         registry.register(ds_handler)
         ds_entities = ds_handler.export(dev_graph)
@@ -174,10 +205,10 @@ def main() -> None:
         orchestrator.export_single(ds_handler, ds_entities, args.output_dir)
 
         # Enrichment for other entity types (tags, terms, domains, ownership)
-        for et in ENRICHABLE_ENTITY_TYPES:
+        for et in enrichment_types:
             if et == "dataset":
                 continue
-            handler = GenericEnrichmentHandler(et, governance_urns, scope=scope)
+            handler = GenericEnrichmentHandler(et, governance_urns, scope=enrichment_scope)
             registry.register(handler)
             entities = handler.export(dev_graph)
             exports[handler.entity_type] = entities

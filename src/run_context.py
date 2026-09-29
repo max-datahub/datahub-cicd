@@ -39,13 +39,13 @@ class PhaseTimer:
     def duration(self) -> float:
         if self.end_time > 0:
             return self.end_time - self.start_time
-        return time.monotonic() - self.start_time
+        return time.perf_counter() - self.start_time
 
     def start(self) -> None:
-        self.start_time = time.monotonic()
+        self.start_time = time.perf_counter()
 
     def stop(self) -> None:
-        self.end_time = time.monotonic()
+        self.end_time = time.perf_counter()
 
     def to_dict(self) -> dict:
         return {
@@ -64,12 +64,12 @@ class RunContext:
     started_at: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
-    _start_mono: float = field(default_factory=time.monotonic, repr=False)
+    _start_mono: float = field(default_factory=time.perf_counter, repr=False)
     phases: dict[str, PhaseTimer] = field(default_factory=dict)
 
     @property
     def duration_seconds(self) -> float:
-        return time.monotonic() - self._start_mono
+        return time.perf_counter() - self._start_mono
 
     def start_phase(self, phase: str) -> PhaseTimer:
         timer = PhaseTimer(phase=phase)
@@ -106,6 +106,7 @@ class TrackedGraph:
         "soft_delete_entity",
         "exists",
         "get_entity_semityped",
+        "get_entities",
         "get_related_entities",
     }
 
@@ -121,9 +122,9 @@ class TrackedGraph:
 
             @wraps(attr)
             def tracked(*args, **kwargs):
-                t0 = time.monotonic()
+                t0 = time.perf_counter()
                 result = attr(*args, **kwargs)
-                elapsed = time.monotonic() - t0
+                elapsed = time.perf_counter() - t0
                 self.call_counts[name] += 1
                 self.call_times[name] += elapsed
                 return result

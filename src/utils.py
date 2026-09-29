@@ -97,7 +97,7 @@ def write_json(data: list[dict], path: str) -> None:
     """Write a list of dicts to a JSON file."""
     filepath = Path(path)
     filepath.parent.mkdir(parents=True, exist_ok=True)
-    with open(filepath, "w") as f:
+    with open(filepath, "w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, indent=2, default=str)
     logger.info(f"Wrote {len(data)} entities to {path}")
 
@@ -108,5 +108,5 @@ def read_json(path: str) -> list[dict]:
     if not filepath.exists():
         logger.warning(f"File not found: {path}, returning empty list")
         return []
-    with open(filepath) as f:
+    with open(filepath, encoding="utf-8") as f:
         return json.load(f)

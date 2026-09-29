@@ -244,6 +244,16 @@ exception.** They are hand-authored datasets on a platform whose `dataPlatformIn
 - **Soft deletes stick.** `status` is not synced, so a model soft-deleted on the target stays
   hidden there after it is promoted again.
 
+To export only logical models, use `--logical-models-only`. It writes the `logicalModels/`
+tree, the tag/glossary/domain definitions (so enrichment references resolve on restore),
+and `enrichment.json`/`containerEnrichment.json` for logical-platform datasets and containers.
+Data products and enrichment on all other entities are skipped. Combine with `--platform`
+to limit it to specific logical platforms, or `--skip-enrichment` for definitions only.
+
+```bash
+python -m src.cli.export_cmd --output-dir metadata/ --logical-models-only
+```
+
 ## Usage
 
 ### Export governance + enrichment from dev

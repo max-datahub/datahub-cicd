@@ -9,6 +9,8 @@ source system. So every logical platform in scope is ALWAYS exported in full.
 """
 
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -42,6 +44,7 @@ DEFINITION_ASPECTS: dict[str, tuple[type, ...]] = {
 }
 PHYSICAL_CHILD = "physicalChild"
 _LOGICAL_FILTER = [{"field": "logical", "condition": "EQUAL", "values": ["true"]}]
+_BATCH_SIZE = 100
 
 
 def _platform_urn(platform: str) -> str:
@@ -70,8 +73,9 @@ def _cyclic_containers(entities: list[dict]) -> dict[str, list[str]]:
 
 
 class LogicalModelHandler(EntityHandler):
-    def __init__(self, platforms: list[str] | None = None) -> None:
+    def __init__(self, platforms: list[str] | None = None, max_workers: int = 8) -> None:
         self.platforms = platforms
+        self.max_workers = max_workers
 
     @property
     def entity_type(self) -> str:
@@ -84,15 +88,27 @@ class LogicalModelHandler(EntityHandler):
         entities = [self._fetch(graph, p) for p in platforms]
         datasets = []
         for p in platforms:
-            for urn in graph.get_urns_by_filter(entity_types=["dataset"], platform=p):
-                ds = self._fetch(graph, urn)
-                children = self._physical_children(graph, urn)
-                if children:
-                    ds["physicalChildren"] = children
-                datasets.append(ds)
+            urns = list(graph.get_urns_by_filter(entity_types=["dataset"], platform=p))
+            logger.info(f"{p}: {len(urns)} logical models to export")
+            started = time.monotonic()
+            with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+                for i, ds in enumerate(pool.map(lambda urn: self._fetch_model(graph, urn), urns), 1):
+                    datasets.append(ds)
+                    if i % 25 == 0 or i == len(urns):
+                        elapsed = time.monotonic() - started
+                        eta = elapsed / i * (len(urns) - i)
+                        logger.info(f"{p}: {i}/{len(urns)} models ({elapsed:.0f}s elapsed, ~{eta:.0f}s remaining)")
+        logger.info(f"Fetching containers for {len(datasets)} logical models...")
         entities += self._containers(graph, datasets) + datasets
         logger.info(f"Exported {len(datasets)} logical models across {len(platforms)} logical platforms")
         return entities
+
+    def _fetch_model(self, graph: DataHubGraph, urn: str) -> dict:
+        ds = self._fetch(graph, urn)
+        children = self._physical_children(graph, urn)
+        if children:
+            ds["physicalChildren"] = children
+        return ds
 
     def write_export(self, entities: list[dict], output_dir: str) -> None:
         # Scoped export owns only the requested platforms' folders (logical or not:
@@ -177,16 +193,32 @@ class LogicalModelHandler(EntityHandler):
             if parent:
                 child["logicalParent"] = parent.to_obj()
             schema = graph.get_aspect(child_urn, SchemaMetadataClass)
+            sf_urns = [make_schema_field_urn(child_urn, f.fieldPath) for f in (schema.fields if schema else [])]
+            links = self._logical_parents(graph, sf_urns)
             fields = []
-            for f in schema.fields if schema else []:
-                sf_urn = make_schema_field_urn(child_urn, f.fieldPath)
-                link = graph.get_aspect(sf_urn, LogicalParentClass)
+            for sf_urn in sf_urns:
+                link = links.get(sf_urn)
                 if link and link.parent and link.parent.destinationUrn.startswith(field_prefix):
                     fields.append({"urn": sf_urn, "logicalParent": link.to_obj()})
             if fields:
                 child["fields"] = fields
             children.append(child)
         return children
+
+    def _logical_parents(self, graph: DataHubGraph, sf_urns: list[str]) -> dict[str, LogicalParentClass]:
+        """Batch-fetch logicalParent for schemaFields; one request per _BATCH_SIZE fields."""
+        found: dict[str, LogicalParentClass] = {}
+        for i in range(0, len(sf_urns), _BATCH_SIZE):
+            batch = sf_urns[i : i + _BATCH_SIZE]
+
+            @retry_transient(max_retries=3, base_delay=1.0)
+            def _get():
+                return graph.get_entities("schemaField", batch, aspects=[LogicalParentClass.ASPECT_NAME])
+
+            for urn, aspects in _get().items():
+                if LogicalParentClass.ASPECT_NAME in aspects:
+                    found[urn] = aspects[LogicalParentClass.ASPECT_NAME][0]
+        return found
 
     # ── sync ──────────────────────────────────────────────────────────────
 

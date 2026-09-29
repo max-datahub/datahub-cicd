@@ -117,7 +117,7 @@ def write_tree(entities: list[dict], output_dir: str, platforms: list[str] | Non
         target = root / paths[e["urn"]]
         target.parent.mkdir(parents=True, exist_ok=True)
         body = {k: e[k] for k in _FILE_KEYS if k in e}
-        target.write_text(json.dumps(body, indent=2, default=str) + "\n")
+        target.write_text(json.dumps(body, indent=2, default=str) + "\n", encoding="utf-8", newline="\n")
     logger.info(f"Wrote {len(entities)} logical model entities to {root}")
 
 
@@ -136,7 +136,7 @@ def read_tree(metadata_dir: str) -> list[dict]:
     for f in sorted(root.rglob("*.json")):
         rel = f.relative_to(root)
         try:
-            body = json.loads(f.read_text())
+            body = json.loads(f.read_text(encoding="utf-8"))
             urn = body["urn"]
             aspects = body.get("aspects", {})
             if not isinstance(aspects, dict) or not all(isinstance(v, dict) for v in aspects.values()):
@@ -160,7 +160,7 @@ def read_tree(metadata_dir: str) -> list[dict]:
             if "container" in aspects and not isinstance(aspects["container"].get("container"), str):
                 raise ValueError(f"container aspect needs a string container URN, got {aspects['container']!r}")
         except (ValueError, KeyError, IndexError, TypeError, AttributeError) as e:
-            entities.append({"urn": str(rel), "entityType": "invalid", "_load_error": f"{rel}: {e}"})
+            entities.append({"urn": rel.as_posix(), "entityType": "invalid", "_load_error": f"{rel.as_posix()}: {e}"})
             continue
         entities.append(entity)
         actual[urn] = rel
