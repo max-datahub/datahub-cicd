@@ -51,7 +51,7 @@ def _wait_indexed(graph, timeout: int = 90) -> None:
         platforms = set(graph.get_urns_by_filter(entity_types=["dataPlatform"], extraFilters=_LOGICAL_FILTER))
         if (
             {seed.LM_INVOICE, seed.LM_CUSTOMER, seed.LM_WIDE} <= models
-            and {seed.LM_CHILD, seed.LM_WIDE_CHILD} <= children
+            and {seed.LM_CHILD, seed.LM_WIDE_CHILD, seed.LM_WIDE_CHILD2} <= children
             and seed.LM_PLATFORM in platforms
         ):
             return
@@ -90,7 +90,7 @@ def first_export(lm_graph, tmp_path_factory) -> Path:
 @pytest.fixture(scope="module")
 def pushed_to_fresh_target(lm_graph, first_export) -> Path:
     for urn in (seed.LM_INVOICE, seed.LM_CUSTOMER, seed.LM_WIDE, seed.LM_SUB, seed.LM_ROOT, seed.LM_PLATFORM,
-                seed.LM_CHILD, seed.LM_WIDE_CHILD):
+                seed.LM_CHILD, seed.LM_WIDE_CHILD, seed.LM_WIDE_CHILD2):
         lm_graph.hard_delete_entity(urn)
     # schemaField URNs are distinct GMS entities; hard_delete_entity(LM_CHILD) does not
     # cascade to them, and seed_logical_models wrote LogicalParentClass directly onto
@@ -99,9 +99,12 @@ def pushed_to_fresh_target(lm_graph, first_export) -> Path:
         lm_graph.hard_delete_entity(make_schema_field_urn(seed.LM_CHILD, c))
     for c in seed.LM_WIDE_COLUMNS + (seed.LM_STRAY_COLUMN,):
         lm_graph.hard_delete_entity(make_schema_field_urn(seed.LM_WIDE_CHILD, c))
+    for c in seed.LM_WIDE_CHILD2_COLUMNS:
+        lm_graph.hard_delete_entity(make_schema_field_urn(seed.LM_WIDE_CHILD2, c))
     # physical children re-ingested on the "new" instance, unlinked
     lm_graph.emit_mcp(seed.logical_child_schema_mcp())
     lm_graph.emit_mcp(seed.logical_wide_child_schema_mcp())
+    lm_graph.emit_mcp(seed.logical_wide_child2_schema_mcp())
     assert not lm_graph.exists(seed.LM_INVOICE)
     assert lm_graph.get_aspect(seed.LM_CHILD, LogicalParentClass) is None
     for c in seed.LM_COLUMNS:
@@ -129,11 +132,15 @@ class TestExport:
         assert {f["urn"] for f in child["fields"]} == {make_schema_field_urn(seed.LM_CHILD, c) for c in seed.LM_COLUMNS}
 
     def test_wide_child_links_span_batches(self, first_export):
-        # 120 links > one batchGet page; the stray link points at another model and is excluded.
+        # 121 + 3 column lookups pooled across both children span two batchGet pages, the second
+        # mixing both children; each child keeps only its own links, and the stray link (to another
+        # model) is excluded.
         body = json.loads((first_export / TREE / "CICD_IT_Root/wide.PROD.json").read_text())
-        (child,) = body["physicalChildren"]
-        assert child["urn"] == seed.LM_WIDE_CHILD
-        assert [f["urn"] for f in child["fields"]] == [make_schema_field_urn(seed.LM_WIDE_CHILD, c) for c in seed.LM_WIDE_COLUMNS]
+        wide, ext = body["physicalChildren"]
+        assert (wide["urn"], ext["urn"]) == (seed.LM_WIDE_CHILD, seed.LM_WIDE_CHILD2)
+        assert wide["logicalParent"]["parent"]["destinationUrn"] == ext["logicalParent"]["parent"]["destinationUrn"] == seed.LM_WIDE
+        assert [f["urn"] for f in wide["fields"]] == [make_schema_field_urn(seed.LM_WIDE_CHILD, c) for c in seed.LM_WIDE_COLUMNS]
+        assert [f["urn"] for f in ext["fields"]] == [make_schema_field_urn(seed.LM_WIDE_CHILD2, c) for c in seed.LM_WIDE_CHILD2_COLUMNS]
 
     def test_model_without_children(self, first_export):
         body = json.loads((first_export / TREE / "CICD_IT_Root/customer.PROD.json").read_text())
@@ -195,6 +202,10 @@ class TestFreshTargetPush:
             link = lm_graph.get_aspect(make_schema_field_urn(seed.LM_WIDE_CHILD, c), LogicalParentClass)
             assert link.parent.destinationUrn == make_schema_field_urn(seed.LM_WIDE, c)
         assert lm_graph.get_aspect(make_schema_field_urn(seed.LM_WIDE_CHILD, seed.LM_STRAY_COLUMN), LogicalParentClass) is None
+        assert lm_graph.get_aspect(seed.LM_WIDE_CHILD2, LogicalParentClass).parent.destinationUrn == seed.LM_WIDE
+        for c in seed.LM_WIDE_CHILD2_COLUMNS:
+            link = lm_graph.get_aspect(make_schema_field_urn(seed.LM_WIDE_CHILD2, c), LogicalParentClass)
+            assert link.parent.destinationUrn == make_schema_field_urn(seed.LM_WIDE, c)
 
 
 class TestIdempotency:
